@@ -28,25 +28,35 @@ if len(versions) != 1:
     has_wanings = True
 
 version = max(Version.parse(v) for v in versions)
+
+if version.prerelease:
+    versions = {
+        "r": version.finalize_version(),
+        "b": version.bump_prerelease(),
+    }
+else:
+    versions = {
+        "M": version.bump_major(),
+        "m": version.bump_minor(),
+        "p": version.bump_patch(),
+        "bM": version.bump_major().bump_prerelease("beta"),
+        "bm": version.bump_minor().bump_prerelease("beta"),
+        "bp": version.bump_patch().bump_prerelease("beta"),
+    }
+
 print(f"Current version: {version}")
 print("Possible next versions:")
-print(f"  1 or M:   {version.next_version('major')}")
-print(f"  2 or m:   {version.next_version('minor')}")
-print(f"  3 or p:   {version.next_version('patch')}")
-print(f"  4 or b:   {version.next_version('prerelease', 'beta')}")
+for i, (key, value) in enumerate(versions.items(), start=1):
+    print(f" {i} or {key}:{' ' * (4 - len(key))}{value}")
 
-next_version = version.next_version("prerelease", "beta") if version.prerelease else version.next_version("patch")
+next_version = version.bump_prerelease() if version.prerelease else version.bump_patch()
 print(f"Default version: {next_version} [Enter to confirm] or enter a new version")
 user_input = input()
 if user_input:
-    if user_input.lower() in {"1", "M"}:
-        next_version = version.next_version("major")
-    elif user_input.lower() in {"2", "m"}:
-        next_version = version.next_version("minor")
-    elif user_input.lower() in {"3", "p"}:
-        next_version = version.next_version("patch")
-    elif user_input.lower() in {"4", "b"}:
-        next_version = version.next_version("prerelease", "beta")
+    if user_input in versions:
+        next_version = versions[user_input]
+    elif user_input.isnumeric():
+        next_version = list(versions.values())[int(user_input) - 1]
     else:
         next_version = Version.parse(user_input)
 
