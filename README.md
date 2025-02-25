@@ -10,10 +10,10 @@ This is a custom component for ESPHome to integrate a smartmeter provided by Wie
 - Siemens IM350
 - Siemens IM351
 - Landis + Gyr E450
+- Iskraemeco AM550-TD0
 
 **Possibly supported but untested**
 - Landis + Gyr E570
-- Iskraemeco AM550-TD0
 - Iskraemeco AM550-ED0
 
 If you have one of the untested devices (or any other devices supplied by Wiener Netze) and are willing to help me test this component, please open an [issue](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new).
@@ -98,3 +98,4 @@ Thanks to the following people for helping test this component on different smar
 - IM350: @coolduke666
 - IM351: @elpollodiablo
 - E450: @s00500
+- AM550-TD0: @paul-leitner

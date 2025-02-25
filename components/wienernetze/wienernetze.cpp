@@ -75,7 +75,7 @@ namespace esphome
             }
             else if (memcmp(&msg[14], "ISKhu", 5) == 0)
             {
-                ESP_LOGW(TAG, "Detected Iskraemeco AM550-TD0/AM550-ED0 (?)"); // change to LOGV when supported
+                ESP_LOGW(TAG, "Detected possible Iskraemeco AM550-ED0"); // change to LOGV when supported
                 offset = -2;
                 ESP_LOGW(TAG, "Support for this smartmeter is untested.");
                 ESP_LOGW(TAG, "Please open a GitHub issue to report success or failure:");
@@ -83,7 +83,7 @@ namespace esphome
             }
             else if (memcmp(&msg[14], "ISKit", 5) == 0)
             {
-                ESP_LOGV(TAG, "Detected Iskraemeco AM550-TD0/AM550-ED0 (?)");
+                ESP_LOGV(TAG, "Detected Iskraemeco AM550-TD0");
                 offset = -2;
             }
             else
