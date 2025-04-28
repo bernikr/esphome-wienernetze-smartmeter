@@ -86,6 +86,11 @@ namespace esphome
                 ESP_LOGV(TAG, "Detected Iskraemeco AM550-TD0");
                 offset = -2;
             }
+            else if (memcmp(&msg[14], "ISKiu", 5) == 0)
+            {
+                ESP_LOGV(TAG, "Detected Iskraemeco AM550-TD0.21");
+                offset = -2;
+            }
             else
             {
                 ESP_LOGW(TAG, "Unknown smartmeter model, support is untested.");
