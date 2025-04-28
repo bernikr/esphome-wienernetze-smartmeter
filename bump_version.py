@@ -6,26 +6,26 @@ from semver import Version
 
 MAIN_BRANCH = "main"
 
-VERSION_OCCURANCES = [
+VERSION_OCCURRENCES = [
     ("README.md", r"(source: github://bernikr/esphome-wienernetze-smartmeter@v)(\S+)()", 1),
     ("components/wienernetze/wienernetze.h", r'(static const char \*WIENERNETZE_VERSION = ")(\S+)(";)', 1),
     ("pyproject.toml", r'(version = ")(\S+)(")', 1),
 ]
 
 versions = set()
-has_wanings = False
+has_warnings = False
 
-for filename, regex, occurrences in VERSION_OCCURANCES:
+for filename, regex, occurrences in VERSION_OCCURRENCES:
     with Path(__file__).parent.joinpath(filename).open("r") as f:
         res = re.findall(regex, f.read())
     if len(res) != occurrences:
-        print(f"WARNING: version occurance mismatch in {filename}")
-        has_wanings = True
+        print(f"WARNING: version occurrence mismatch in {filename}")
+        has_warnings = True
     versions.update(r[1] for r in res)
 
 if len(versions) != 1:
     print(f"WARNING: multiple versions found: {versions}")
-    has_wanings = True
+    has_warnings = True
 
 version = max(Version.parse(v) for v in versions)
 
@@ -63,27 +63,27 @@ if user_input:
 print(f"Entered version: {next_version}")
 if not next_version > version:
     print("WARNING: new version should be greater than current version")
-    has_wanings = True
+    has_warnings = True
 
 repo = Repo(Path(__file__).parent)
 if repo.is_dirty():
     print("WARNING: repo is dirty, please commit or stage changes before continuing")
     input("Press enter to continue")
 
-for filename, regex, _ in VERSION_OCCURANCES:
+for filename, regex, _ in VERSION_OCCURRENCES:
     with Path(__file__).parent.joinpath(filename).open("r+") as f:
         res = re.sub(regex, f"\\g<1>{next_version}\\g<3>", f.read())
         f.seek(0)
         f.write(res)
         f.truncate()
 
-if has_wanings:
-    print("WARNING: there were warnings, please check the output before contiuning")
+if has_warnings:
+    print("WARNING: there were warnings, please check the output before continuing")
     input("Press enter to continue")
 
 res = input("Do you want to commit the changes? [y/N] ")
 if res.lower() in {"y", "yes"}:
-    repo.git.add(*{filename for filename, _, _ in VERSION_OCCURANCES})
+    repo.git.add(*{filename for filename, _, _ in VERSION_OCCURRENCES})
     repo.git.commit("-m", f"Bump version to {next_version}")
     repo.create_tag(f"v{next_version}", message=f"Bump version to {next_version}")
     print("changes committed and created tag")
