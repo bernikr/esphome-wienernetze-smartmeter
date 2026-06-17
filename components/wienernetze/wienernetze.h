@@ -33,7 +33,7 @@ namespace esphome
 {
     namespace wienernetze
     {
-        static const char *WIENERNETZE_VERSION = "1.2.0";
+        static const char *WIENERNETZE_VERSION = "1.3.0-beta.1";
         static const char *TAG = "wienernetze";
 
         class WienerNetze : public Component, public uart::UARTDevice
