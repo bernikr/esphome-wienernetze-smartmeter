@@ -5,9 +5,15 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 
-#include <Crypto.h>
-#include <AES.h>
-#include <CTR.h>
+#ifdef USE_ESP_IDF
+  #ifndef MBEDTLS_CONFIG_FILE
+    #define MBEDTLS_CONFIG_FILE "mbedtls/esp_config.h"
+  #endif
+  #include <mbedtls/aes.h>
+#else
+  #include <AES.h>
+  #include <CTR.h>
+#endif
 
 #define WIENERNETZE_SENSOR(name) \
 protected:                       \
@@ -56,8 +62,11 @@ namespace esphome
             std::vector<uint8_t> receiveBuffer; // Stores the packet currently being received
             unsigned long lastRead = 0;         // Timestamp when data was last read
             int readTimeout = 100;              // Time to wait after last byte before considering data complete
-
+        
+            #ifndef USE_ESP_IDF
+            // Only compile the Arduino-specific CTR object under Arduino
             CTR<AES128> ctraes128;
+            #endif
 
             const uint8_t *key; // Stores the decryption key
 

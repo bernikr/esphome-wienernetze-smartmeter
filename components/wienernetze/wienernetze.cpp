@@ -130,9 +130,23 @@ namespace esphome
             memcpy(nonce, msg.data() + 16 + offset, 8);
             memcpy(nonce + 8, msg.data() + 26 + offset, 4);
             nonce[15] = 0x02;
+            
+#ifdef USE_ESP_IDF
+            // ESP-IDF: Native mbedTLS AES-128-CTR Decryption
+            mbedtls_aes_context aes_ctx;
+            mbedtls_aes_init(&aes_ctx);
+            mbedtls_aes_setkey_enc(&aes_ctx, this->key, 128);
+            size_t nc_off = 0;
+            uint8_t stream_block[16] = {0};
+            mbedtls_aes_crypt_ctr(&aes_ctx, msglen, &nc_off, nonce, stream_block, message, message);
+            mbedtls_aes_free(&aes_ctx);
+#else
+            // Arduino: Fallback to rweather/Crypto library
             this->ctraes128.setKey(this->key, 16);
             this->ctraes128.setIV(nonce, 16);
             this->ctraes128.decrypt(message, message, msglen);
+#endif
+
             ESP_LOGV(TAG, "decrypted data: %s", format_hex_pretty(std::vector<uint8_t>(message, message + msglen)).c_str());
 
             if (message[0] != 0x0f || message[msglen - 5] != 0x06 || message[msglen - 5 * 2] != 0x06 || message[msglen - 5 * 3] != 0x06 || message[msglen - 5 * 4] != 0x06 || message[msglen - 5 * 5] != 0x06 || message[msglen - 5 * 6] != 0x06 || message[msglen - 5 * 7] != 0x06 || message[msglen - 5 * 8] != 0x06)
