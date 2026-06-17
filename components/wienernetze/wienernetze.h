@@ -5,7 +5,6 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 
-#include <FastCRC.h>
 #include <Crypto.h>
 #include <AES.h>
 #include <CTR.h>
@@ -58,7 +57,6 @@ namespace esphome
             unsigned long lastRead = 0;         // Timestamp when data was last read
             int readTimeout = 100;              // Time to wait after last byte before considering data complete
 
-            FastCRC16 CRC16;
             CTR<AES128> ctraes128;
 
             const uint8_t *key; // Stores the decryption key

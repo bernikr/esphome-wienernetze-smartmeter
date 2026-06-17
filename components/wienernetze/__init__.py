@@ -48,5 +48,4 @@ def to_code(config):
     cg.add(var.set_key(arr))
     yield cg.register_component(var, config)
     yield uart.register_uart_device(var, config)
-    cg.add_library("frankboesing/FastCRC", "1.41")
     cg.add_library("rweather/Crypto", "0.4.0")

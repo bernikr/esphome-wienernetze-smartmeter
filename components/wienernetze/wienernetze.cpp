@@ -4,6 +4,21 @@ namespace esphome
 {
     namespace wienernetze
     {
+        uint16_t calculate_crc16_x25(const uint8_t *data, size_t length) {
+            uint16_t crc = 0xFFFF;
+            for (size_t i = 0; i < length; i++) {
+                crc ^= data[i];
+                for (int j = 0; j < 8; j++) {
+                    if (crc & 1) {
+                        crc = (crc >> 1) ^ 0x8408;
+                    } else {
+                        crc >>= 1;
+                    }
+                }
+            }
+            return crc ^ 0xFFFF;
+        }
+
         void WienerNetze::dump_config()
         {
             ESP_LOGCONFIG(TAG, "WienerNetze Smartmeter:");
@@ -99,7 +114,7 @@ namespace esphome
             }
 
             // CRC Check
-            int crc = this->CRC16.x25(msg.data() + 1, datalen - 4);
+            int crc = calculate_crc16_x25(msg.data() + 1, datalen - 4);
             int expected_crc = msg[datalen - 2] * 256 + msg[datalen - 3];
             if (crc != expected_crc)
             {
