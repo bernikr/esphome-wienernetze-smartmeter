@@ -1,4 +1,4 @@
-# ruff: noqa: ANN001, ANN201
+# ruff: noqa: ANN001, ANN201, RUF067
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -55,7 +55,8 @@ def to_code(config):
     elif CORE.is_esp32:
         # If on ESP32 and not using Arduino (meaning native ESP-IDF), request mbedtls
         try:
-            from esphome.components.esp32 import include_builtin_idf_component
+            from esphome.components.esp32 import include_builtin_idf_component  # noqa: PLC0415
+
             include_builtin_idf_component("mbedtls")
         except ImportError:
             pass

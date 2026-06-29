@@ -1,4 +1,4 @@
-# ruff: noqa: ANN001, ANN002, ANN003, ANN201, ANN204
+# ruff: noqa: ANN002, ANN003, ANN204, RUF067
 import esphome.config_validation as cv
 
 DEPENDENCIES = ["uart"]

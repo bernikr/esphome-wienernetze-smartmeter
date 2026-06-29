@@ -72,9 +72,9 @@ text_sensor:
 
 For every sensor normal esphome sensor configs can be used to set name, id, icon, etc. or add filters and so on.
 
-**Warning**  
+**Warning**
 All energy sensors roll over every 1000 kWh and start again from 0 due to precision issues of ESPHome.
-(Sensors are always 32bit floats. If the meter is too high the sensor cant update every Wh anymore.)  
+(Sensors are always 32bit floats. If the meter is too high the sensor cant update every Wh anymore.)
 This is not a problem when using the `active_energy_pos` sensor for the energy dashboard in Home Assistant as it is set to `total_increasing` and therefore Home Assistant knows that a drop from 1000 to 0 is a reset of the counter and not a negative consumption of 1000kWh.
 
 As an alternative you can use the text_sensors which always result in the full counter of the meter (in Wh not kWh). To use them as a numeric sensor in Home Assistant you need to create a Template Sensor that takes the sensor and converts it into a numeric sensor:

@@ -13,15 +13,16 @@ line-length = 120
 preview = true
 select = ["ALL"]
 ignore = [
-    "D",   # pydocstyle
-    "CPY", # flake8-copyright
-    "T20", # flake8-print
+  "D",   # pydocstyle
+  "CPY", # flake8-copyright
+  "T20", # flake8-print
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "ruff>=0.8.1",
-    "esphome>=2024.12.4",
-    "gitpython>=3.1.44",
-    "semver>=3.0.0",
+  "ruff>=0.8.1",
+  "esphome>=2024.12.4",
+  "gitpython>=3.1.44",
+  "semver>=3.0.0",
+  "prek>=0.4.5",
 ]

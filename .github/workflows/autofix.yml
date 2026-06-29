@@ -1,0 +1,11 @@
+name: autofix.ci
+on: [push, pull_request]
+jobs:
+  prek:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - uses: j178/prek-action@v1
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
+        if: failure()
