@@ -1,36 +1,28 @@
 #pragma once
 
-#include "esphome/components/uart/uart.h"
-#include "esphome/components/sensor/sensor.h"
-#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
-
-#ifdef USE_ESP_IDF
-  #ifndef MBEDTLS_CONFIG_FILE
-    #define MBEDTLS_CONFIG_FILE "mbedtls/esp_config.h"
-  #endif
-  #include <mbedtls/aes.h>
-#else
-  #include <AES.h>
-  #include <CTR.h>
-#endif
+#include "esphome/components/uart/uart.h"
+#include <vector>
+#include <cstdint>
 
 #define WIENERNETZE_SENSOR(name) \
 protected:                       \
     sensor::Sensor *name{};      \
-                                 \
 public:                          \
     void set_##name(sensor::Sensor *name) { this->name = name; }
 
 #define WIENERNETZE_TEXT_SENSOR(name) \
 protected:                            \
     text_sensor::TextSensor *name{};  \
-                                      \
 public:                               \
     void set_##name(text_sensor::TextSensor *name) { this->name = name; }
 
 namespace esphome
 {
+    // Forward declarations to minimize header dependencies
+    namespace sensor { class Sensor; }
+    namespace text_sensor { class TextSensor; }
+
     namespace wienernetze
     {
         static const char *WIENERNETZE_VERSION = "1.3.0-beta.1";
@@ -55,22 +47,14 @@ namespace esphome
         public:
             void dump_config() override;
             void loop() override;
-
             void set_key(const uint8_t *key) { this->key = key; }
 
         private:
             std::vector<uint8_t> receiveBuffer; // Stores the packet currently being received
             unsigned long lastRead = 0;         // Timestamp when data was last read
             int readTimeout = 100;              // Time to wait after last byte before considering data complete
-        
-            #ifndef USE_ESP_IDF
-            // Only compile the Arduino-specific CTR object under Arduino
-            CTR<AES128> ctraes128;
-            #endif
+            const uint8_t *key{nullptr};        // Stores the decryption key
 
-            const uint8_t *key; // Stores the decryption key
-
-            int bytes_to_int(uint8_t bytes[], int left, int right);
             void handle_message(std::vector<uint8_t> msg);
         };
     }

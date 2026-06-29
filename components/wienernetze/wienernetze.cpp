@@ -1,23 +1,49 @@
 #include "wienernetze.h"
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
+
+#ifdef USE_ESP_IDF
+  #ifndef MBEDTLS_CONFIG_FILE
+    #define MBEDTLS_CONFIG_FILE "mbedtls/esp_config.h"
+  #endif
+  #include <mbedtls/aes.h>
+#else
+  #include <AES.h>
+  #include <CTR.h>
+#endif
 
 namespace esphome
 {
     namespace wienernetze
     {
-        uint16_t calculate_crc16_x25(const uint8_t *data, size_t length) {
-            uint16_t crc = 0xFFFF;
-            for (size_t i = 0; i < length; i++) {
-                crc ^= data[i];
-                for (int j = 0; j < 8; j++) {
-                    if (crc & 1) {
-                        crc = (crc >> 1) ^ 0x8408;
-                    } else {
-                        crc >>= 1;
+        namespace
+        {
+            uint16_t calculate_crc16_x25(const uint8_t *data, size_t length)
+            {
+                uint16_t crc = 0xFFFF;
+                for (size_t i = 0; i < length; i++) {
+                    crc ^= data[i];
+                    for (int j = 0; j < 8; j++) {
+                        if (crc & 1) {
+                            crc = (crc >> 1) ^ 0x8408;
+                        } else {
+                            crc >>= 1;
+                        }
                     }
                 }
+                return crc ^ 0xFFFF;
             }
-            return crc ^ 0xFFFF;
-        }
+
+            uint32_t bytes_to_int(const uint8_t *bytes, size_t offset, size_t len)
+            {
+                uint32_t result = 0;
+                for (size_t i = offset; i < offset + len; i++)
+                {
+                    result = (result << 8) | bytes[i];
+                }
+                return result;
+            }
+        } // namespace
 
         void WienerNetze::dump_config()
         {
@@ -39,20 +65,10 @@ namespace esphome
 
             if (!this->receiveBuffer.empty() && currentTime - this->lastRead > this->readTimeout)
             {
-                ESP_LOGV(TAG, "raw recieved data: %s", format_hex_pretty(this->receiveBuffer).c_str());
+                ESP_LOGV(TAG, "raw received data: %s", format_hex_pretty(this->receiveBuffer).c_str());
                 handle_message(this->receiveBuffer);
                 this->receiveBuffer.clear(); // Reset buffer
             }
-        }
-
-        int WienerNetze::bytes_to_int(uint8_t bytes[], int left, int len)
-        {
-            int result = 0;
-            for (unsigned int i = left; i < left + len; i++)
-            {
-                result = result * 256 + bytes[i];
-            }
-            return result;
         }
 
         void WienerNetze::handle_message(std::vector<uint8_t> msg)
@@ -73,7 +89,7 @@ namespace esphome
 
             if (msg[datalen - 1] != 0x7e)
             {
-                ESP_LOGW(TAG, "wrong closing byte: %02x, expected 7e", msg[124]);
+                ESP_LOGW(TAG, "wrong closing byte: %02x, expected 7e", msg[datalen - 1]);
                 return;
             }
 
@@ -142,9 +158,10 @@ namespace esphome
             mbedtls_aes_free(&aes_ctx);
 #else
             // Arduino: Fallback to rweather/Crypto library
-            this->ctraes128.setKey(this->key, 16);
-            this->ctraes128.setIV(nonce, 16);
-            this->ctraes128.decrypt(message, message, msglen);
+            CTR<AES128> ctraes128;
+            ctraes128.setKey(this->key, 16);
+            ctraes128.setIV(nonce, 16);
+            ctraes128.decrypt(message, message, msglen);
 #endif
 
             ESP_LOGV(TAG, "decrypted data: %s", format_hex_pretty(std::vector<uint8_t>(message, message + msglen)).c_str());
