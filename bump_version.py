@@ -8,7 +8,7 @@ MAIN_BRANCH = "main"
 
 VERSION_OCCURRENCES = [
     ("README.md", r"(source: github://bernikr/esphome-wienernetze-smartmeter@v)(\S+)()", 1),
-    ("components/wienernetze/wienernetze.h", r'(static const char \*WIENERNETZE_VERSION = ")(\S+)(";)', 1),
+    ("components/wienernetze/wienernetze.h", r'(static const char\* WIENERNETZE_VERSION = ")(\S+)(";)', 1),
     ("pyproject.toml", r'(version = ")(\S+)(")', 1),
 ]
 
