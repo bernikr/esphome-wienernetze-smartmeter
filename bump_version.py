@@ -84,7 +84,7 @@ if has_warnings:
 res = input("Do you want to commit the changes? [y/N] ")
 if res.lower() in {"y", "yes"}:
     repo.git.add(*{filename for filename, _, _ in VERSION_OCCURRENCES})
-    repo.git.commit("-m", f"Bump version to {next_version}")
+    repo.git.commit("-m", f"chore(release): bump version to {next_version}")
     repo.create_tag(f"v{next_version}", message=f"Bump version to {next_version}")
     print("changes committed and created tag")
     if not next_version.prerelease:
