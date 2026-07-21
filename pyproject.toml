@@ -20,9 +20,9 @@ ignore = [
 
 [dependency-groups]
 dev = [
-  "ruff>=0.15.20",
-  "esphome>=2026.6.3",
-  "gitpython>=3.1.50",
+  "ruff>=0.15.22",
+  "esphome>=2026.7.1",
+  "gitpython>=3.1.53",
   "semver>=3.0.4",
-  "prek>=0.4.5",
+  "prek>=0.4.10",
 ]
