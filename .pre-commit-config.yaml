@@ -18,17 +18,17 @@ repos:
       - id: taplo-format
         args: [--option, column_width=20]
   - repo: https://github.com/bernikr/pre-commit-ruff-version-sync
-    rev: v0.1.2
+    rev: v0.1.3
     hooks:
       - id: ruff-version-sync
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.22
+    rev: v0.16.8
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v22.1.5
+    rev: v23.1.1
     hooks:
       - id: clang-format
   - repo: https://github.com/jorisroovers/gitlint
