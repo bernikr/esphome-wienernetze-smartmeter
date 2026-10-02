@@ -179,7 +179,7 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
       message[msglen - 5 * 4] != 0x06 || message[msglen - 5 * 5] != 0x06 ||
       message[msglen - 5 * 6] != 0x06 || message[msglen - 5 * 7] != 0x06 ||
       message[msglen - 5 * 8] != 0x06) {
-    ESP_LOGW(TAG, "decryption error, please check if your key is correct");
+    ESP_LOGE(TAG, "decryption error, please check if your key is correct");
     return;
   }
 

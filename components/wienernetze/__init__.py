@@ -1,4 +1,4 @@
-# ruff: noqa: ANN001, ANN201, RUF067
+# ruff:file-ignore[missing-type-function-argument, missing-return-type-undocumented-public-function, non-empty-init-module]
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -26,7 +26,7 @@ WIENERNETZE_COMPONENT_SCHEMA = cv.Schema(
 
 def validate_key(value):
     value = cv.string(value).replace(" ", "").upper()
-    if len(value) != 32 or any(c not in "0123456789ABCDEF" for c in value):  # noqa: PLR2004
+    if len(value) != 32 or any(c not in "0123456789ABCDEF" for c in value):  # ruff:ignore[magic-value-comparison]
         msg = "Key must be 16 bytes in Hex"
         raise cv.Invalid(msg)
     return [int(value[i * 2 : i * 2 + 2], 16) for i in range(16)]
@@ -55,7 +55,7 @@ def to_code(config):
     elif CORE.is_esp32:
         # If on ESP32 and not using Arduino (meaning native ESP-IDF), request mbedtls
         try:
-            from esphome.components.esp32 import include_builtin_idf_component  # noqa: PLC0415
+            from esphome.components.esp32 import include_builtin_idf_component  # ruff:ignore[import-outside-top-level]
 
             include_builtin_idf_component("mbedtls")
         except ImportError:

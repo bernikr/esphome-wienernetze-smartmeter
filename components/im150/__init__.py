@@ -1,4 +1,4 @@
-# ruff: noqa: ANN002, ANN003, ANN204, RUF067
+# ruff:file-ignore[missing-type-args, missing-type-kwargs, missing-return-type-special-method, non-empty-init-module]
 import esphome.config_validation as cv
 
 DEPENDENCIES = ["uart"]

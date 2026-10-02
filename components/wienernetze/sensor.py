@@ -1,4 +1,4 @@
-# ruff: noqa: ANN001, ANN201
+# ruff:file-ignore[missing-type-function-argument, missing-return-type-undocumented-public-function]
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
