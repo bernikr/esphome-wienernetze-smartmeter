@@ -3,8 +3,6 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 
-#include <algorithm>
-
 #ifdef USE_ESP_IDF
   #ifndef MBEDTLS_CONFIG_FILE
     #define MBEDTLS_CONFIG_FILE "mbedtls/esp_config.h"
@@ -19,7 +17,7 @@ namespace esphome {
 namespace wienernetze {
 namespace {
 uint16_t calculate_crc16_x25(const uint8_t* data, size_t length) {
-  uint16_t crc = 0xFFFF;
+  uint16_t crc = 0xffff;
   for (size_t i = 0; i < length; i++) {
     crc ^= data[i];
     for (int j = 0; j < 8; j++) {
@@ -30,7 +28,7 @@ uint16_t calculate_crc16_x25(const uint8_t* data, size_t length) {
       }
     }
   }
-  return crc ^ 0xFFFF;
+  return crc ^ 0xffff;
 }
 
 uint32_t bytes_to_int(const uint8_t* bytes, size_t offset, size_t len) {
@@ -70,14 +68,18 @@ void WienerNetze::loop() {
 void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   uint8_t datalen = msg.size();
 
-  if (msg[0] != 0x7e || msg[1] != 0xA0) {
-    ESP_LOGW(
-        TAG, "wrong opening bytes: %02x %02x, expected 7e a0", msg[0], msg[1]);
-    return;
-  }
+  // HDLC Frame Format Type 3
+  // +------+---------------+---------------+-------------+---------+-
+  // | Flag | Frame Format  | Dest Address  | Src Address | Control |
+  // |  7E  |   (2 bytes)   |  (1-4 bytes)  | (1-4 bytes) | (1 byte)|
+  // +------+---------------+---------------+-------------+---------+-
+  // --------+-------------+---------+------+
+  //   HCS   | Information |   FCS   | Flag |
+  // (2 byte)|  (APDU data)| (2 byte)|  7E  |
+  // --------+-------------+---------+------+
 
-  if (datalen != msg[2] + 2) {
-    ESP_LOGW(TAG, "wrong msg length: %i, expected %i", datalen, msg[2] + 2);
+  if (msg[0] != 0x7e) {
+    ESP_LOGW(TAG, "wrong opening byte: %02x, expected 7e", msg[0]);
     return;
   }
 
@@ -86,12 +88,32 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     return;
   }
 
-  // CRC Check
+  // CRC Check (FCS)
   int crc          = calculate_crc16_x25(msg.data() + 1, datalen - 4);
   int expected_crc = msg[datalen - 2] * 256 + msg[datalen - 3];
   if (crc != expected_crc) {
     ESP_LOGW(
         TAG, "crc mismatch: calculated %04x, expected %04x", crc, expected_crc);
+    return;
+  }
+
+  // HDLC Frame Format Bytes
+  // 4 bit Format Type | 1 Segmentation Bit | 11 bit length
+  if ((msg[1] & 0xf0) != 0xa0) {
+    ESP_LOGE(TAG, "wrong format type: %02x, expected a0", msg[1] & 0xf0);
+    return;
+  }
+
+  if (msg[1] & 0x09) {
+    ESP_LOGE(TAG, "Segmented HDLC messages are not supported");
+    return;
+  }
+
+  if (datalen - 2 != (((msg[1] & 0x07) << 8) | msg[2])) {
+    ESP_LOGE(TAG,
+        "wrong msg length: %i, expected %i",
+        datalen,
+        (((msg[1] & 0x0007) << 8) | msg[2]) + 2);
     return;
   }
 
