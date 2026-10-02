@@ -3,6 +3,8 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 
+#include <algorithm>
+
 #ifdef USE_ESP_IDF
   #ifndef MBEDTLS_CONFIG_FILE
     #define MBEDTLS_CONFIG_FILE "mbedtls/esp_config.h"
@@ -84,33 +86,59 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     return;
   }
 
-  // Detect smartmeter type and make adjustments
-  int offset = 0;
-  if (memcmp(&msg[16], "SMS", 3) == 0) {
-    ESP_LOGV(TAG, "Detected Siemens");
-  } else if (memcmp(&msg[14], "LGZ", 3) == 0) {
-    ESP_LOGV(TAG, "Detected Landis+Gyr");
-    offset = -2;
-  } else if (memcmp(&msg[14], "ISK", 3) == 0) {
-    ESP_LOGV(TAG, "Detected Iskraemeco");
-    offset = -2;
-  } else {
-    ESP_LOGW(TAG, "Unknown smartmeter model, support is untested.");
-    ESP_LOGW(TAG,
-        "Please open a GitHub issue and include the model of your smartmeter "
-        "and the following data: %s",
-        format_hex_pretty(std::vector<uint8_t>(&msg[14], &msg[14 + 7]))
-            .c_str());
-    ESP_LOGW(TAG,
-        "https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new");
-  }
-
   // CRC Check
   int crc          = calculate_crc16_x25(msg.data() + 1, datalen - 4);
   int expected_crc = msg[datalen - 2] * 256 + msg[datalen - 3];
   if (crc != expected_crc) {
     ESP_LOGW(
         TAG, "crc mismatch: calculated %04x, expected %04x", crc, expected_crc);
+    return;
+  }
+
+  // The HDLC header in front of the payload differs between meters: its two
+  // address fields are 1, 2 or 4 bytes long (Siemens: 1 + 4, Iskraemeco:
+  // 1 + 2, Landis+Gyr: 2 + 1). Only the last byte of an address field has the
+  // lowest bit set (IEC 62056-46).
+  size_t pos     = 3;
+  bool header_ok = true;
+  for (int field = 0; field < 2; field++) {
+    size_t start = pos;
+    while (pos < datalen && (msg[pos] & 0x01) == 0) {
+      pos++;
+    }
+    pos++;
+    size_t length = pos - start;
+    header_ok &= length == 1 || length == 2 || length == 4;
+  }
+  pos += 3; // control field and header check sequence
+
+  // LLC header, then the system title (tag DB, length 8). Its first three
+  // bytes are the manufacturer ID, e.g. SMS, LGZ or ISK.
+  if (!header_ok || pos + 5 + 8 > datalen || msg[pos] != 0xe6 ||
+      msg[pos + 1] != 0xe7 || msg[pos + 2] != 0x00 || msg[pos + 3] != 0xdb ||
+      msg[pos + 4] != 0x08) {
+    ESP_LOGW(TAG,
+        "unexpected frame header: %s",
+        format_hex_pretty(std::vector<uint8_t>(msg.begin(),
+                              msg.begin() + std::min<size_t>(datalen, 20)))
+            .c_str());
+    return;
+  }
+  const uint8_t* system_title = &msg[pos + 5];
+  ESP_LOGV(TAG,
+      "system title: %.3s %s",
+      reinterpret_cast<const char*>(system_title),
+      format_hex_pretty(
+          std::vector<uint8_t>(system_title + 3, system_title + 8))
+          .c_str());
+
+  // The positions below are those of the Siemens layout, where the system
+  // title starts at byte 16.
+  int offset = static_cast<int>(pos + 5) - 16;
+  // The decrypted payload starts with 0x0f and ends with eight 5-byte values,
+  // so it needs at least 41 bytes (see the checks after decryption).
+  if (datalen - 33 - offset < 41) {
+    ESP_LOGW(TAG, "message too short: %i bytes", datalen);
     return;
   }
 
