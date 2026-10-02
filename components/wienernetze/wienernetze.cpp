@@ -86,24 +86,13 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
 
   // Detect smartmeter type and make adjustments
   int offset = 0;
-  if (memcmp(&msg[16], "SMSfp", 5) == 0) {
-    ESP_LOGV(TAG, "Detected Siemens IM150/IM151/IM350/IM351");
-  } else if (memcmp(&msg[14], "LGZgs", 5) == 0) {
-    ESP_LOGV(TAG, "Detected Landis+Gyr E450/E570");
+  if (memcmp(&msg[16], "SMS", 3) == 0) {
+    ESP_LOGV(TAG, "Detected Siemens");
+  } else if (memcmp(&msg[14], "LGZ", 3) == 0) {
+    ESP_LOGV(TAG, "Detected Landis+Gyr");
     offset = -2;
-  } else if (memcmp(&msg[14], "ISKhu", 5) == 0) {
-    // change below line to LOGV when tested
-    ESP_LOGW(TAG, "Detected possible Iskraemeco AM550-ED0");
-    offset = -2;
-    ESP_LOGW(TAG, "Support for this smartmeter is untested.");
-    ESP_LOGW(TAG, "Please open a GitHub issue to report success or failure:");
-    ESP_LOGW(TAG,
-        "https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new");
-  } else if (memcmp(&msg[14], "ISKit", 5) == 0) {
-    ESP_LOGV(TAG, "Detected Iskraemeco AM550-TD0");
-    offset = -2;
-  } else if (memcmp(&msg[14], "ISKiu", 5) == 0) {
-    ESP_LOGV(TAG, "Detected Iskraemeco AM550-TD0.21");
+  } else if (memcmp(&msg[14], "ISK", 3) == 0) {
+    ESP_LOGV(TAG, "Detected Iskraemeco");
     offset = -2;
   } else {
     ESP_LOGW(TAG, "Unknown smartmeter model, support is untested.");
