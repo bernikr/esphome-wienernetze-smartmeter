@@ -89,7 +89,7 @@ void WienerNetze::loop() {
 }
 
 void WienerNetze::handle_message(std::vector<uint8_t> msg) {
-  uint8_t datalen = msg.size();
+  uint8_t msg_len = msg.size();
 
   // HDLC Frame Format Type 3
   // +------+---------------+---------------+-------------+---------+-
@@ -106,14 +106,14 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     return;
   }
 
-  if (msg[datalen - 1] != 0x7e) {
-    ESP_LOGW(TAG, "wrong closing byte: %02x, expected 7e", msg[datalen - 1]);
+  if (msg[msg_len - 1] != 0x7e) {
+    ESP_LOGW(TAG, "wrong closing byte: %02x, expected 7e", msg[msg_len - 1]);
     return;
   }
 
   // CRC Check (FCS)
-  int crc          = calculate_crc16_x25(msg.data() + 1, datalen - 4);
-  int expected_crc = msg[datalen - 2] * 256 + msg[datalen - 3];
+  int crc          = calculate_crc16_x25(msg.data() + 1, msg_len - 4);
+  int expected_crc = msg[msg_len - 2] * 256 + msg[msg_len - 3];
   if (crc != expected_crc) {
     ESP_LOGW(
         TAG, "crc mismatch: calculated %04x, expected %04x", crc, expected_crc);
@@ -132,10 +132,10 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     return;
   }
 
-  if (datalen - 2 != (((msg[1] & 0x07) << 8) | msg[2])) {
+  if (msg_len - 2 != (((msg[1] & 0x07) << 8) | msg[2])) {
     ESP_LOGE(TAG,
         "wrong msg length: %i, expected %i",
-        datalen,
+        msg_len,
         (((msg[1] & 0x0007) << 8) | msg[2]) + 2);
     return;
   }
@@ -148,7 +148,7 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   bool header_ok = true;
   for (int field = 0; field < 2; field++) {
     size_t start = pos;
-    while (pos < datalen && (msg[pos] & 0x01) == 0) {
+    while (pos < msg_len && (msg[pos] & 0x01) == 0) {
       pos++;
     }
     pos++;
@@ -159,13 +159,13 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
 
   // LLC header, then the system title (tag DB, length 8). Its first three
   // bytes are the manufacturer ID, e.g. SMS, LGZ or ISK.
-  if (!header_ok || pos + 5 + 8 > datalen || msg[pos] != 0xe6 ||
+  if (!header_ok || pos + 5 + 8 > msg_len || msg[pos] != 0xe6 ||
       msg[pos + 1] != 0xe7 || msg[pos + 2] != 0x00 || msg[pos + 3] != 0xdb ||
       msg[pos + 4] != 0x08) {
     ESP_LOGW(TAG,
         "unexpected frame header: %s",
         format_hex_pretty(std::vector<uint8_t>(msg.begin(),
-                              msg.begin() + std::min<size_t>(datalen, 20)))
+                              msg.begin() + std::min<size_t>(msg_len, 20)))
             .c_str());
     return;
   }
@@ -182,42 +182,41 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   int offset = static_cast<int>(pos + 5) - 16;
   // The decrypted payload starts with 0x0f and ends with eight 5-byte values,
   // so it needs at least 41 bytes (see the checks after decryption).
-  if (datalen - 33 - offset < 41) {
-    ESP_LOGW(TAG, "message too short: %i bytes", datalen);
+  if (msg_len - 33 - offset < 41) {
+    ESP_LOGW(TAG, "data too short: %i bytes", msg_len);
     return;
   }
 
   // Decrypt
-  uint8_t msglen          = datalen - 33 - offset;
-  uint8_t message[msglen] = {0};
-  memcpy(message, msg.data() + 30 + offset, msglen);
+  uint8_t data_len       = msg_len - 33 - offset;
+  uint8_t data[data_len] = {0};
+  memcpy(data, msg.data() + 30 + offset, data_len);
   uint8_t nonce[16] = {0};
   memcpy(nonce, msg.data() + 16 + offset, 8);
   memcpy(nonce + 8, msg.data() + 26 + offset, 4);
   nonce[15] = 0x02;
 
-  decrypt(this->key, nonce, message, msglen);
+  decrypt(this->key, nonce, data, data_len);
 
   ESP_LOGV(TAG,
       "decrypted data: %s",
-      format_hex_pretty(std::vector<uint8_t>(message, message + msglen))
-          .c_str());
+      format_hex_pretty(std::vector<uint8_t>(data, data + data_len)).c_str());
 
-  if (message[0] != 0x0f || message[msglen - 5] != 0x06 ||
-      message[msglen - 5 * 2] != 0x06 || message[msglen - 5 * 3] != 0x06 ||
-      message[msglen - 5 * 4] != 0x06 || message[msglen - 5 * 5] != 0x06 ||
-      message[msglen - 5 * 6] != 0x06 || message[msglen - 5 * 7] != 0x06 ||
-      message[msglen - 5 * 8] != 0x06) {
+  if (data[0] != 0x0f || data[data_len - 5] != 0x06 ||
+      data[data_len - 5 * 2] != 0x06 || data[data_len - 5 * 3] != 0x06 ||
+      data[data_len - 5 * 4] != 0x06 || data[data_len - 5 * 5] != 0x06 ||
+      data[data_len - 5 * 6] != 0x06 || data[data_len - 5 * 7] != 0x06 ||
+      data[data_len - 5 * 8] != 0x06) {
     ESP_LOGE(TAG, "decryption error, please check if your key is correct");
     return;
   }
 
-  uint32_t active_energy_pos_raw = bytes_to_int(message, msglen - 4 - 5 * 7, 4);
-  uint32_t active_energy_neg_raw = bytes_to_int(message, msglen - 4 - 5 * 6, 4);
+  uint32_t active_energy_pos_raw = bytes_to_int(data, data_len - 4 - 5 * 7, 4);
+  uint32_t active_energy_neg_raw = bytes_to_int(data, data_len - 4 - 5 * 6, 4);
   uint32_t reactive_energy_pos_raw =
-      bytes_to_int(message, msglen - 4 - 5 * 5, 4);
+      bytes_to_int(data, data_len - 4 - 5 * 5, 4);
   uint32_t reactive_energy_neg_raw =
-      bytes_to_int(message, msglen - 4 - 5 * 4, 4);
+      bytes_to_int(data, data_len - 4 - 5 * 4, 4);
 
   // use modulo 1000kwh for the energy sensors, because esphome sensors are only
   // 32bit floats values larger than that would suffer from precision errors
@@ -227,10 +226,10 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   float active_energy_neg   = (active_energy_neg_raw % 1000000) / 1000.0;
   float reactive_energy_pos = (reactive_energy_pos_raw % 1000000) / 1000.0;
   float reactive_energy_neg = (reactive_energy_neg_raw % 1000000) / 1000.0;
-  float active_power_pos    = bytes_to_int(message, msglen - 4 - 5 * 3, 4);
-  float active_power_neg    = bytes_to_int(message, msglen - 4 - 5 * 2, 4);
-  float reactive_power_pos  = bytes_to_int(message, msglen - 4 - 5 * 1, 4);
-  float reactive_power_neg  = bytes_to_int(message, msglen - 4 - 5 * 0, 4);
+  float active_power_pos    = bytes_to_int(data, data_len - 4 - 5 * 3, 4);
+  float active_power_neg    = bytes_to_int(data, data_len - 4 - 5 * 2, 4);
+  float reactive_power_pos  = bytes_to_int(data, data_len - 4 - 5 * 1, 4);
+  float reactive_power_neg  = bytes_to_int(data, data_len - 4 - 5 * 0, 4);
 
   if (this->active_energy_pos != nullptr &&
       this->active_energy_pos->state != active_energy_pos)
