@@ -127,7 +127,7 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     return;
   }
 
-  if (msg[1] & 0x09) {
+  if (msg[1] & 0x08) {
     ESP_LOGE(TAG, "Segmented HDLC messages are not supported");
     return;
   }
