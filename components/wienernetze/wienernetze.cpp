@@ -38,6 +38,29 @@ uint32_t bytes_to_int(const uint8_t* bytes, size_t offset, size_t len) {
   }
   return result;
 }
+
+void decrypt(const uint8_t key[16], const uint8_t iv[16], uint8_t* data,
+    size_t data_len) {
+#ifdef USE_ESP_IDF
+  // ESP-IDF: Native mbedTLS AES-128-CTR Decryption
+  mbedtls_aes_context aes_ctx;
+  mbedtls_aes_init(&aes_ctx);
+  mbedtls_aes_setkey_enc(&aes_ctx, key, 128);
+  size_t nc_off            = 0;
+  uint8_t stream_block[16] = {0};
+  uint8_t nonce_counter[16];
+  memcpy(nonce_counter, iv, 16);
+  mbedtls_aes_crypt_ctr(
+      &aes_ctx, data_len, &nc_off, nonce_counter, stream_block, data, data);
+  mbedtls_aes_free(&aes_ctx);
+#else
+  // Arduino: Fallback to rweather/Crypto library
+  CTR<AES128> ctraes128;
+  ctraes128.setKey(key, 16);
+  ctraes128.setIV(iv, 16);
+  ctraes128.decrypt(data, data, data_len);
+#endif
+}
 } // namespace
 
 void WienerNetze::dump_config() {
@@ -173,23 +196,7 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   memcpy(nonce + 8, msg.data() + 26 + offset, 4);
   nonce[15] = 0x02;
 
-#ifdef USE_ESP_IDF
-  // ESP-IDF: Native mbedTLS AES-128-CTR Decryption
-  mbedtls_aes_context aes_ctx;
-  mbedtls_aes_init(&aes_ctx);
-  mbedtls_aes_setkey_enc(&aes_ctx, this->key, 128);
-  size_t nc_off            = 0;
-  uint8_t stream_block[16] = {0};
-  mbedtls_aes_crypt_ctr(
-      &aes_ctx, msglen, &nc_off, nonce, stream_block, message, message);
-  mbedtls_aes_free(&aes_ctx);
-#else
-  // Arduino: Fallback to rweather/Crypto library
-  CTR<AES128> ctraes128;
-  ctraes128.setKey(this->key, 16);
-  ctraes128.setIV(nonce, 16);
-  ctraes128.decrypt(message, message, msglen);
-#endif
+  decrypt(this->key, nonce, message, msglen);
 
   ESP_LOGV(TAG,
       "decrypted data: %s",
