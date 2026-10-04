@@ -31,18 +31,16 @@ uint16_t calculate_crc16_x25(const uint8_t* data, size_t length) {
   return crc ^ 0xffff;
 }
 
-uint32_t bytes_to_int(const uint8_t* bytes, size_t offset, size_t len) {
-  uint32_t result = 0;
-  for (size_t i = offset; i < offset + len; i++) {
-    result = (result << 8) | bytes[i];
-  }
-  return result;
+uint32_t read_uint32(const uint8_t* bytes) {
+  return (static_cast<uint32_t>(bytes[0]) << 24) |
+         (static_cast<uint32_t>(bytes[1]) << 16) |
+         (static_cast<uint32_t>(bytes[2]) << 8) | bytes[3];
 }
 
 void decrypt(const uint8_t key[16], const uint8_t iv[16], uint8_t* data,
     size_t data_len) {
 #ifdef USE_ESP_IDF
-  // ESP-IDF: Native mbedTLS AES-128-CTR Decryption
+  // ESP-IDF: use mbedTLS AES-128-CTR Decryption
   mbedtls_aes_context aes_ctx;
   mbedtls_aes_init(&aes_ctx);
   mbedtls_aes_setkey_enc(&aes_ctx, key, 128);
@@ -54,7 +52,7 @@ void decrypt(const uint8_t key[16], const uint8_t iv[16], uint8_t* data,
       &aes_ctx, data_len, &nc_off, nonce_counter, stream_block, data, data);
   mbedtls_aes_free(&aes_ctx);
 #else
-  // Arduino: Fallback to rweather/Crypto library
+  // Arduino: use rweather/Crypto library
   CTR<AES128> ctraes128;
   ctraes128.setKey(key, 16);
   ctraes128.setIV(iv, 16);
@@ -83,14 +81,12 @@ void WienerNetze::loop() {
     ESP_LOGV(TAG,
         "raw received data: %s",
         format_hex_pretty(this->receiveBuffer).c_str());
-    handle_message(this->receiveBuffer);
+    handle_message(this->receiveBuffer.data(), this->receiveBuffer.size());
     this->receiveBuffer.clear(); // Reset buffer
   }
 }
 
-void WienerNetze::handle_message(std::vector<uint8_t> msg) {
-  uint8_t msg_len = msg.size();
-
+void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // HDLC Frame Format Type 3
   // +------+---------------+---------------+-------------+---------+-
   // | Flag | Frame Format  | Dest Address  | Src Address | Control |
@@ -112,8 +108,8 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   }
 
   // CRC Check (FCS)
-  int crc          = calculate_crc16_x25(msg.data() + 1, msg_len - 4);
-  int expected_crc = msg[msg_len - 2] * 256 + msg[msg_len - 3];
+  uint16_t crc          = calculate_crc16_x25(msg + 1, msg_len - 4);
+  uint16_t expected_crc = (msg[msg_len - 2] << 8) | msg[msg_len - 3];
   if (crc != expected_crc) {
     ESP_LOGW(
         TAG, "crc mismatch: calculated %04x, expected %04x", crc, expected_crc);
@@ -136,7 +132,7 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     ESP_LOGE(TAG,
         "wrong msg length: %i, expected %i",
         msg_len,
-        (((msg[1] & 0x0007) << 8) | msg[2]) + 2);
+        (((msg[1] & 0x07) << 8) | msg[2]) + 2);
     return;
   }
 
@@ -164,8 +160,8 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
       msg[pos + 4] != 0x08) {
     ESP_LOGW(TAG,
         "unexpected frame header: %s",
-        format_hex_pretty(std::vector<uint8_t>(msg.begin(),
-                              msg.begin() + std::min<size_t>(msg_len, 20)))
+        format_hex_pretty(
+            std::vector<uint8_t>(msg, msg + std::min<size_t>(msg_len, 20)))
             .c_str());
     return;
   }
@@ -190,10 +186,10 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   // Decrypt
   uint8_t data_len       = msg_len - 33 - offset;
   uint8_t data[data_len] = {0};
-  memcpy(data, msg.data() + 30 + offset, data_len);
+  memcpy(data, msg + 30 + offset, data_len);
   uint8_t nonce[16] = {0};
-  memcpy(nonce, msg.data() + 16 + offset, 8);
-  memcpy(nonce + 8, msg.data() + 26 + offset, 4);
+  memcpy(nonce, msg + 16 + offset, 8);
+  memcpy(nonce + 8, msg + 26 + offset, 4);
   nonce[15] = 0x02;
 
   decrypt(this->key, nonce, data, data_len);
@@ -211,12 +207,10 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
     return;
   }
 
-  uint32_t active_energy_pos_raw = bytes_to_int(data, data_len - 4 - 5 * 7, 4);
-  uint32_t active_energy_neg_raw = bytes_to_int(data, data_len - 4 - 5 * 6, 4);
-  uint32_t reactive_energy_pos_raw =
-      bytes_to_int(data, data_len - 4 - 5 * 5, 4);
-  uint32_t reactive_energy_neg_raw =
-      bytes_to_int(data, data_len - 4 - 5 * 4, 4);
+  uint32_t active_energy_pos_raw   = read_uint32(data + data_len - 4 - 5 * 7);
+  uint32_t active_energy_neg_raw   = read_uint32(data + data_len - 4 - 5 * 6);
+  uint32_t reactive_energy_pos_raw = read_uint32(data + data_len - 4 - 5 * 5);
+  uint32_t reactive_energy_neg_raw = read_uint32(data + data_len - 4 - 5 * 4);
 
   // use modulo 1000kwh for the energy sensors, because esphome sensors are only
   // 32bit floats values larger than that would suffer from precision errors
@@ -226,10 +220,10 @@ void WienerNetze::handle_message(std::vector<uint8_t> msg) {
   float active_energy_neg   = (active_energy_neg_raw % 1000000) / 1000.0;
   float reactive_energy_pos = (reactive_energy_pos_raw % 1000000) / 1000.0;
   float reactive_energy_neg = (reactive_energy_neg_raw % 1000000) / 1000.0;
-  float active_power_pos    = bytes_to_int(data, data_len - 4 - 5 * 3, 4);
-  float active_power_neg    = bytes_to_int(data, data_len - 4 - 5 * 2, 4);
-  float reactive_power_pos  = bytes_to_int(data, data_len - 4 - 5 * 1, 4);
-  float reactive_power_neg  = bytes_to_int(data, data_len - 4 - 5 * 0, 4);
+  float active_power_pos    = read_uint32(data + data_len - 4 - 5 * 3);
+  float active_power_neg    = read_uint32(data + data_len - 4 - 5 * 2);
+  float reactive_power_pos  = read_uint32(data + data_len - 4 - 5 * 1);
+  float reactive_power_neg  = read_uint32(data + data_len - 4 - 5 * 0);
 
   if (this->active_energy_pos != nullptr &&
       this->active_energy_pos->state != active_energy_pos)

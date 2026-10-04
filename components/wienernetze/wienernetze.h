@@ -55,7 +55,7 @@ class WienerNetze : public Component, public uart::UARTDevice {
     int readTimeout = 100;       // Time to wait after last byte before decoding
     const uint8_t* key{nullptr}; // Stores the decryption key
 
-    void handle_message(std::vector<uint8_t> msg);
+    void handle_message(const uint8_t* msg, size_t msg_len);
 };
 } // namespace wienernetze
 } // namespace esphome
