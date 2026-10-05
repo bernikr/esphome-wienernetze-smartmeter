@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 bernikr <hi@berni.kr>
+//
+// SPDX-License-Identifier: MIT
+
 #include "wienernetze.h"
 
 #include "esphome/components/sensor/sensor.h"
@@ -312,7 +316,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   }
 
   // Decrypt
-  uint8_t data[data_len] = {0};
+  uint8_t data[data_len];
   memcpy(data, &information_field[18 + cypher_len_len], data_len);
   uint8_t iv[16] = {0};
   memcpy(iv, &information_field[5], 8);

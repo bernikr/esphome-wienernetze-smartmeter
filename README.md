@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2023 bernikr <hi@berni.kr>
+
+SPDX-License-Identifier: MIT
+-->
+
 # ESPHome Smartmeter Reader for Wiener Netze
 
 This is a custom component for ESPHome to integrate a smartmeter provided by Wiener Netze into Home Assistant via the infrared "Kundenschnittstelle". It gives power and energy readings, both positive and negative for active as well as reactive power.
