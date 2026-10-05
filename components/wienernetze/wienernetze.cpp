@@ -390,52 +390,34 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   float reactive_power_pos  = read_uint32(&data[53 + 5 * 6]);
   float reactive_power_neg  = read_uint32(&data[53 + 5 * 7]);
 
-  if (this->active_energy_pos != nullptr &&
-      this->active_energy_pos->state != active_energy_pos)
-    this->active_energy_pos->publish_state(active_energy_pos);
-  if (this->active_energy_neg != nullptr &&
-      this->active_energy_neg->state != active_energy_neg)
-    this->active_energy_neg->publish_state(active_energy_neg);
-  if (this->reactive_energy_pos != nullptr &&
-      this->reactive_energy_pos->state != reactive_energy_pos)
-    this->reactive_energy_pos->publish_state(reactive_energy_pos);
-  if (this->reactive_energy_neg != nullptr &&
-      this->reactive_energy_neg->state != reactive_energy_neg)
-    this->reactive_energy_neg->publish_state(reactive_energy_neg);
-  if (this->active_power_pos != nullptr &&
-      this->active_power_pos->state != active_power_pos)
-    this->active_power_pos->publish_state(active_power_pos);
-  if (this->active_power_neg != nullptr &&
-      this->active_power_neg->state != active_power_neg)
-    this->active_power_neg->publish_state(active_power_neg);
-  if (this->reactive_power_pos != nullptr &&
-      this->reactive_power_pos->state != reactive_power_pos)
-    this->reactive_power_pos->publish_state(reactive_power_pos);
-  if (this->reactive_power_neg != nullptr &&
-      this->reactive_power_neg->state != reactive_power_neg)
-    this->reactive_power_neg->publish_state(reactive_power_neg);
+#define WRITE_SENSOR(name)                                  \
+  if (this->name != nullptr && this->name->state != name) { \
+    this->name->publish_state(name);                        \
+  }
+
+  WRITE_SENSOR(active_energy_pos);
+  WRITE_SENSOR(active_energy_neg);
+  WRITE_SENSOR(reactive_energy_pos);
+  WRITE_SENSOR(reactive_energy_neg);
+  WRITE_SENSOR(active_power_pos);
+  WRITE_SENSOR(active_power_neg);
+  WRITE_SENSOR(reactive_power_pos);
+  WRITE_SENSOR(reactive_power_neg);
 
   char buffer[16];
-  if (this->active_energy_pos_raw != nullptr) {
-    itoa(active_energy_pos_raw, buffer, 10);
-    if (this->active_energy_pos_raw->state != buffer)
-      this->active_energy_pos_raw->publish_state(buffer);
+
+#define WRITE_TEXT_SENSOR(name)          \
+  if (this->name != nullptr) {           \
+    itoa(name, buffer, 10);              \
+    if (this->name->state != buffer) {   \
+      this->name->publish_state(buffer); \
+    }                                    \
   }
-  if (this->active_energy_neg_raw != nullptr) {
-    itoa(active_energy_neg_raw, buffer, 10);
-    if (this->active_energy_neg_raw->state != buffer)
-      this->active_energy_neg_raw->publish_state(buffer);
-  }
-  if (this->reactive_energy_pos_raw != nullptr) {
-    itoa(reactive_energy_pos_raw, buffer, 10);
-    if (this->reactive_energy_pos_raw->state != buffer)
-      this->reactive_energy_pos_raw->publish_state(buffer);
-  }
-  if (this->reactive_energy_neg_raw != nullptr) {
-    itoa(reactive_energy_neg_raw, buffer, 10);
-    if (this->reactive_energy_neg_raw->state != buffer)
-      this->reactive_energy_neg_raw->publish_state(buffer);
-  }
+
+  WRITE_TEXT_SENSOR(active_energy_pos_raw);
+  WRITE_TEXT_SENSOR(active_energy_neg_raw);
+  WRITE_TEXT_SENSOR(reactive_energy_pos_raw);
+  WRITE_TEXT_SENSOR(reactive_energy_neg_raw);
 }
 } // namespace wienernetze
 } // namespace esphome
