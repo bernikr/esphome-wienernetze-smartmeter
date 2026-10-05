@@ -59,6 +59,50 @@ void decrypt(const uint8_t key[16], const uint8_t iv[16], uint8_t* data,
   ctraes128.decrypt(data, data, data_len);
 #endif
 }
+
+void format_dlms_time(const uint8_t* buf, char* out_str, size_t max_len) {
+  // 1. Extract date & time fields
+  uint16_t year  = ((uint16_t)buf[0] << 8) | buf[1];
+  uint8_t month  = buf[2];
+  uint8_t day    = buf[3];
+  uint8_t hour   = buf[5]; // byte 4 is day-of-week, skip it
+  uint8_t minute = buf[6];
+  uint8_t second = buf[7];
+
+  // 2. Extract and invert the deviation to get the UTC offset
+  int16_t dev_min = (int16_t)(((uint16_t)buf[9] << 8) | buf[10]);
+
+  if (dev_min != (int16_t)0x8000) {
+    // Invert because DLMS defines: Deviation = UTC - LocalTime
+    int16_t offset_min = -dev_min;
+    int tz_hours       = offset_min / 60;
+    int tz_mins        = std::abs(offset_min % 60);
+
+    // Full ISO 8601: "YYYY-MM-DDTHH:MM:SS+02:00"
+    snprintf(out_str,
+        max_len,
+        "%04u-%02u-%02uT%02u:%02u:%02u%+03d:%02u",
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+        tz_hours,
+        tz_mins);
+  } else {
+    // Fallback if meter sends 0x8000 (deviation not specified)
+    snprintf(out_str,
+        max_len,
+        "%04u-%02u-%02u %02u:%02u:%02u",
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second);
+  }
+}
 } // namespace
 
 void WienerNetze::dump_config() {
@@ -88,14 +132,16 @@ void WienerNetze::loop() {
 
 void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // HDLC Frame Format Type 3
-  // +------+---------------+---------------+-------------+---------+-
-  // | Flag | Frame Format  | Dest Address  | Src Address | Control |
-  // |  7E  |   (2 bytes)   |  (1-4 bytes)  | (1-4 bytes) | (1 byte)|
-  // +------+---------------+---------------+-------------+---------+-
-  // --------+-------------+---------+------+
-  //   HCS   | Information |   FCS   | Flag |
-  // (2 byte)|  (APDU data)| (2 byte)|  7E  |
-  // --------+-------------+---------+------+
+  //  0      1               3               3+?           3+x
+  //  +------+---------------+---------------+-------------+---------+-
+  //  | Flag | Frame Format  | Dest Address  | Src Address | Control |
+  //  |  7E  |   (2 bytes)   |  (1-4 bytes)  | (1-4 bytes) | (1 byte)|
+  //  +------+---------------+---------------+-------------+---------+-
+  //  4+x      6+x           len-3     len-1
+  // -+--------+-------------+---------+------+
+  //  |  HCS   | Information |   FCS   | Flag |
+  //  |(2 byte)|  (APDU data)| (2 byte)|  7E  |
+  // -+--------+-------------+---------+------+
 
   if (msg[0] != 0x7e) {
     ESP_LOGW(TAG, "wrong opening byte: %02x, expected 7e", msg[0]);
@@ -124,7 +170,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   }
 
   if (msg[1] & 0x08) {
-    ESP_LOGE(TAG, "Segmented HDLC messages are not supported");
+    ESP_LOGE(TAG, "segmented HDLC messages are not supported");
     return;
   }
 
@@ -147,30 +193,35 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     }
     pos++;
   }
-  size_t control_field_pos = pos; // addresses are followed by the control field
+  size_t addr_len = pos - 3;
 
-  if (msg[control_field_pos] != 0x03 && msg[control_field_pos] != 0x13) {
-    ESP_LOGE(TAG, "wrong control field: %02x, expected 0x03 or 0x13", msg[pos]);
+  if (msg[3 + addr_len] != 0x03 && msg[3 + addr_len] != 0x13) {
+    ESP_LOGE(TAG,
+        "wrong control field: %02x, expected 0x03 or 0x13",
+        msg[3 + addr_len]);
     return;
   }
 
-  // DLMS/COSEM Information Field (glo-general-ciphering / Suite 0)
-  // +--------+---------+----------+----------+-----------+--------------+-
-  // | D-LSAP | S-LSAP  | LLC Ctrl | APDU Tag | Title Len | System Title |
-  // |   E6   |  E6/E7  |    00    |    DB    |    08     |  (8 bytes)   |
-  // +--------+---------+----------+----------+-----------+--------------+-
-  // ------------+----------+-------------+-------------------+
-  //  Cipher Len | Sec Ctrl | Frame Count | Encrypted Payload |
-  //  (1-3 bytes)|    20    |  (4 bytes)  |    (variable)     |
-  // ------------+----------+-------------+-------------------+
-  const uint8_t* information_field = &msg[control_field_pos + 3];
-  uint8_t information_field_len    = msg_len - control_field_pos - 6;
+  const uint8_t* information_field = &msg[6 + addr_len];
+  size_t information_field_len     = msg_len - 6 - addr_len - 3;
 
   ESP_LOGV(TAG,
       "information field data: %s",
       format_hex_pretty(std::vector<uint8_t>(information_field,
                             information_field + information_field_len))
           .c_str());
+
+  // DLMS/COSEM Information Field (glo-general-ciphering / Suite 0)
+  //  0        1         2          3          4           5
+  //  +--------+---------+----------+----------+-----------+--------------+-
+  //  | D-LSAP | S-LSAP  | LLC Ctrl | APDU Tag | Title Len | System Title |
+  //  |   E6   |  E6/E7  |    00    |    DB    |    08     |  (8 bytes)   |
+  //  +--------+---------+----------+----------+-----------+--------------+-
+  //  13           13+x       14+x          18+x
+  // -+------------+----------+-------------+-------------------+
+  //  | Cipher Len | Sec Ctrl | Frame Count | Encrypted Payload |
+  //  | (1-3 bytes)|    20    |  (4 bytes)  |    (variable)     |
+  // -+------------+----------+-------------+-------------------+
 
   if (information_field[0] != 0xe6) {
     ESP_LOGE(TAG, "unexpected D-LSAP: %02x, expected e6", information_field[0]);
@@ -257,19 +308,74 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
       "decrypted data: %s",
       format_hex_pretty(std::vector<uint8_t>(data, data + data_len)).c_str());
 
-  if (data[0] != 0x0f || data[data_len - 5] != 0x06 ||
-      data[data_len - 5 * 2] != 0x06 || data[data_len - 5 * 3] != 0x06 ||
-      data[data_len - 5 * 4] != 0x06 || data[data_len - 5 * 5] != 0x06 ||
-      data[data_len - 5 * 6] != 0x06 || data[data_len - 5 * 7] != 0x06 ||
-      data[data_len - 5 * 8] != 0x06) {
+  // Decrypted DLMS/COSEM Payload (Data-Notification APDU: 0F)
+  //  0          1            2                5             6
+  //  +----------+------------+----------------+-------------+----------------+-
+  //  | APDU Tag | Prio/Flags | Long-Invoke-Id | Date-Time L | APDU Timestamp |
+  //  |    0F    |     00     |   (3 bytes)    |     0C      |   (12 bytes)   |
+  //  +----------+------------+----------------+-------------+----------------+-
+  //  18           19           20              22
+  // -+------------+------------+---------------+--------------------+-
+  //  | Struct Tag | Struct Qty | Str Tag & Len |  Element 1: Serial |
+  //  |     02     |     0A     |     09 10     |     (16 bytes)     |
+  // -+------------+------------+---------------+--------------------+-
+  //  38           40                   52         53
+  // -+------------+--------------------+----------+--------------------+-
+  //  | Str Tag & L|  Element 2: Time   | Type Tag |   Element 3: +A    |
+  //  |    09 0C   |     (12 bytes)     |    06    |    (uint32 Wh)     |
+  // -+------------+--------------------+----------+--------------------+-
+  //  57           58                   62         63
+  // -+------------+--------------------+----------+--------------------+-
+  //  | Type Tag   |   Element 4: -A    | Type Tag |   Element 5: +R    |
+  //  |    06      |    (uint32 Wh)     |    06    |   (uint32 varh)    |
+  // -+------------+--------------------+----------+--------------------+-
+  //  67           68                   72         73
+  // -+------------+--------------------+----------+--------------------+-
+  //  | Type Tag   |   Element 6: -R    | Type Tag |   Element 7: +P    |
+  //  |    06      |   (uint32 varh)    |    06    |     (uint32 W)     |
+  // -+------------+--------------------+----------+--------------------+-
+  //  77           78                   82         83
+  // -+------------+--------------------+----------+--------------------+-
+  //  | Type Tag   |   Element 8: -P    | Type Tag |   Element 9: +Q    |
+  //  |    06      |     (uint32 W)     |    06    |    (uint32 var)    |
+  // -+------------+--------------------+----------+--------------------+-
+  //  87           88
+  // -+------------+--------------------+
+  //  | Type Tag   |   Element 10: -Q   |
+  //  |    06      |    (uint32 var)    |
+  // -+------------+--------------------+
+
+  // Check some well known bytes in the decrypted data
+  if (data[0] != 0x0f || data[1] != 0x00 || data[5] != 0x0c ||
+      data[18] != 0x02) {
     ESP_LOGE(TAG, "decryption error, please check if your key is correct");
     return;
   }
 
-  uint32_t active_energy_pos_raw   = read_uint32(data + data_len - 4 - 5 * 7);
-  uint32_t active_energy_neg_raw   = read_uint32(data + data_len - 4 - 5 * 6);
-  uint32_t reactive_energy_pos_raw = read_uint32(data + data_len - 4 - 5 * 5);
-  uint32_t reactive_energy_neg_raw = read_uint32(data + data_len - 4 - 5 * 4);
+  // Meter Serial Number
+  if (data[21] != 0x10) {
+    ESP_LOGE(TAG,
+        "unexpected meter serial number length: %02x, expected 0x10",
+        data[21]);
+    return;
+  }
+  ESP_LOGV(TAG, "meter serial number: %.16s", &data[22]);
+
+  // Measurement Time
+  char time_buf[35];
+  format_dlms_time(&data[40], time_buf, sizeof(time_buf));
+  ESP_LOGV(TAG, "meter measurement time: %s", time_buf);
+
+  if (memcmp(&data[40], &data[6], 12)) {
+    ESP_LOGW(TAG, "difference between measurement time and meter time");
+    format_dlms_time(&data[6], time_buf, sizeof(time_buf));
+    ESP_LOGW(TAG, "meter time: %s", time_buf);
+  }
+
+  uint32_t active_energy_pos_raw   = read_uint32(&data[53 + 5 * 0]);
+  uint32_t active_energy_neg_raw   = read_uint32(&data[53 + 5 * 1]);
+  uint32_t reactive_energy_pos_raw = read_uint32(&data[53 + 5 * 2]);
+  uint32_t reactive_energy_neg_raw = read_uint32(&data[53 + 5 * 3]);
 
   // use modulo 1000kwh for the energy sensors, because esphome sensors are only
   // 32bit floats values larger than that would suffer from precision errors
@@ -279,10 +385,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   float active_energy_neg   = (active_energy_neg_raw % 1000000) / 1000.0;
   float reactive_energy_pos = (reactive_energy_pos_raw % 1000000) / 1000.0;
   float reactive_energy_neg = (reactive_energy_neg_raw % 1000000) / 1000.0;
-  float active_power_pos    = read_uint32(data + data_len - 4 - 5 * 3);
-  float active_power_neg    = read_uint32(data + data_len - 4 - 5 * 2);
-  float reactive_power_pos  = read_uint32(data + data_len - 4 - 5 * 1);
-  float reactive_power_neg  = read_uint32(data + data_len - 4 - 5 * 0);
+  float active_power_pos    = read_uint32(&data[53 + 5 * 4]);
+  float active_power_neg    = read_uint32(&data[53 + 5 * 5]);
+  float reactive_power_pos  = read_uint32(&data[53 + 5 * 6]);
+  float reactive_power_neg  = read_uint32(&data[53 + 5 * 7]);
 
   if (this->active_energy_pos != nullptr &&
       this->active_energy_pos->state != active_energy_pos)
