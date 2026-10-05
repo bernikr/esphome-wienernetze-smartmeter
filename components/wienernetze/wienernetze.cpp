@@ -13,6 +13,8 @@
   #include <CTR.h>
 #endif
 
+#define READ_TIMEOUT 100 // Time to wait after last byte before decoding
+
 namespace esphome {
 namespace wienernetze {
 namespace {
@@ -120,7 +122,7 @@ void WienerNetze::loop() {
   }
 
   if (!this->receiveBuffer.empty() &&
-      currentTime - this->lastRead > this->readTimeout) {
+      currentTime - this->lastRead > READ_TIMEOUT) {
     ESP_LOGV(TAG,
         "raw received data: %s",
         format_hex_pretty(this->receiveBuffer).c_str());
@@ -186,7 +188,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // found.
   size_t pos = 3;
   for (int i = 0; i < 2; i++) { // 2 iterations: Dest and Src
-    while (pos < msg_len && (msg[pos] & 0x01) == 0) { // Skip leading zero bytes
+    while (pos < msg_len && (msg[pos] & 0x01) == 0) { // Skip to last byte
       pos++;
     }
     pos++;
@@ -255,7 +257,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   const uint8_t* system_title = &information_field[5];
   ESP_LOGV(TAG,
       "system title: %.3s %s",
-      reinterpret_cast<const char*>(system_title),
+      system_title,
       format_hex_pretty(
           std::vector<uint8_t>(system_title + 3, system_title + 8))
           .c_str());
