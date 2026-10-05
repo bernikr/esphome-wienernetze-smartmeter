@@ -357,30 +357,78 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     return;
   }
 
-  // Meter Serial Number
-  if (data[21] != 0x10) {
+  // Not all meters send the serial number. Wiener Netze documents it as the
+  // first element for Siemens meters (10 elements), Landis+Gyr and Iskraemeco
+  // meters start directly with the time (9 elements), and so do some Siemens
+  // meters (e.g. IM351 with system title SMSgp). All following offsets are
+  // relative to the start of the time element.
+  // https://www.wienernetze.at/smart-meter-kundenschnittstelle
+  size_t time_pos;
+  if (data[19] == 0x0a) {
+    // Meter Serial Number
+    if (data[20] != 0x09 || data[21] != 0x10) {
+      ESP_LOGE(TAG,
+          "unexpected meter serial number tag: %02x %02x, expected 09 10",
+          data[20],
+          data[21]);
+      return;
+    }
+    ESP_LOGV(TAG, "meter serial number: %.16s", &data[22]);
+    time_pos = 38;
+  } else if (data[19] == 0x09) {
+    time_pos = 20;
+  } else {
     ESP_LOGE(TAG,
-        "unexpected meter serial number length: %02x, expected 0x10",
-        data[21]);
+        "unexpected number of elements: %02x, expected 0a or 09",
+        data[19]);
     return;
   }
-  ESP_LOGV(TAG, "meter serial number: %.16s", &data[22]);
+
+  if (data_len < time_pos + 2 + 12 + 8 * 5) {
+    ESP_LOGE(TAG,
+        "decrypted data too short: %i bytes, expected at least %i",
+        data_len,
+        time_pos + 2 + 12 + 8 * 5);
+    return;
+  }
+
+  if (data[time_pos] != 0x09 || data[time_pos + 1] != 0x0c) {
+    ESP_LOGE(TAG,
+        "unexpected measurement time tag: %02x %02x, expected 09 0c",
+        data[time_pos],
+        data[time_pos + 1]);
+    return;
+  }
+  const uint8_t* measurement_time = &data[time_pos + 2];
+
+  // Elements 3 to 10 (or 2 to 9 without serial number), each a Type Tag 06
+  // followed by a uint32
+  const uint8_t* values = &data[time_pos + 14];
+  for (int i = 0; i < 8; i++) {
+    if (values[5 * i] != 0x06) {
+      ESP_LOGE(TAG,
+          "unexpected type tag of value %i: %02x, expected 06",
+          i + 1,
+          values[5 * i]);
+      return;
+    }
+  }
 
   // Measurement Time
   char time_buf[35];
-  format_dlms_time(&data[40], time_buf, sizeof(time_buf));
+  format_dlms_time(measurement_time, time_buf, sizeof(time_buf));
   ESP_LOGV(TAG, "meter measurement time: %s", time_buf);
 
-  if (memcmp(&data[40], &data[6], 12)) {
+  if (memcmp(measurement_time, &data[6], 12)) {
     ESP_LOGW(TAG, "difference between measurement time and meter time");
     format_dlms_time(&data[6], time_buf, sizeof(time_buf));
     ESP_LOGW(TAG, "meter time: %s", time_buf);
   }
 
-  uint32_t active_energy_pos_raw   = read_uint32(&data[53 + 5 * 0]);
-  uint32_t active_energy_neg_raw   = read_uint32(&data[53 + 5 * 1]);
-  uint32_t reactive_energy_pos_raw = read_uint32(&data[53 + 5 * 2]);
-  uint32_t reactive_energy_neg_raw = read_uint32(&data[53 + 5 * 3]);
+  uint32_t active_energy_pos_raw   = read_uint32(&values[1 + 5 * 0]);
+  uint32_t active_energy_neg_raw   = read_uint32(&values[1 + 5 * 1]);
+  uint32_t reactive_energy_pos_raw = read_uint32(&values[1 + 5 * 2]);
+  uint32_t reactive_energy_neg_raw = read_uint32(&values[1 + 5 * 3]);
 
   // use modulo 1000kwh for the energy sensors, because esphome sensors are only
   // 32bit floats values larger than that would suffer from precision errors
@@ -390,10 +438,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   float active_energy_neg   = (active_energy_neg_raw % 1000000) / 1000.0;
   float reactive_energy_pos = (reactive_energy_pos_raw % 1000000) / 1000.0;
   float reactive_energy_neg = (reactive_energy_neg_raw % 1000000) / 1000.0;
-  float active_power_pos    = read_uint32(&data[53 + 5 * 4]);
-  float active_power_neg    = read_uint32(&data[53 + 5 * 5]);
-  float reactive_power_pos  = read_uint32(&data[53 + 5 * 6]);
-  float reactive_power_neg  = read_uint32(&data[53 + 5 * 7]);
+  float active_power_pos    = read_uint32(&values[1 + 5 * 4]);
+  float active_power_neg    = read_uint32(&values[1 + 5 * 5]);
+  float reactive_power_pos  = read_uint32(&values[1 + 5 * 6]);
+  float reactive_power_neg  = read_uint32(&values[1 + 5 * 7]);
 
 #define WRITE_SENSOR(name)                                  \
   if (this->name != nullptr && this->name->state != name) { \
