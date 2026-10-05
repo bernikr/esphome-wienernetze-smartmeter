@@ -32,9 +32,8 @@ uint16_t calculate_crc16_x25(const uint8_t* data, size_t length) {
 }
 
 uint32_t read_uint32(const uint8_t* bytes) {
-  return (static_cast<uint32_t>(bytes[0]) << 24) |
-         (static_cast<uint32_t>(bytes[1]) << 16) |
-         (static_cast<uint32_t>(bytes[2]) << 8) | bytes[3];
+  return ((uint32_t)bytes[0] << 24) | ((uint32_t)bytes[1] << 16) |
+         ((uint32_t)bytes[2] << 8) | bytes[3];
 }
 
 void decrypt(const uint8_t key[16], const uint8_t iv[16], uint8_t* data,
@@ -154,8 +153,9 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   }
 
   // CRC Check (FCS)
-  uint16_t crc          = calculate_crc16_x25(msg + 1, msg_len - 4);
-  uint16_t expected_crc = (msg[msg_len - 2] << 8) | msg[msg_len - 3];
+  uint16_t crc = calculate_crc16_x25(msg + 1, msg_len - 4);
+  uint16_t expected_crc =
+      ((uint16_t)(msg[msg_len - 2] << 8) | msg[msg_len - 3]);
   if (crc != expected_crc) {
     ESP_LOGW(
         TAG, "crc mismatch: calculated %04x, expected %04x", crc, expected_crc);
@@ -174,11 +174,9 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     return;
   }
 
-  if (msg_len - 2 != (((msg[1] & 0x07) << 8) | msg[2])) {
-    ESP_LOGE(TAG,
-        "wrong msg length: %i, expected %i",
-        msg_len,
-        (((msg[1] & 0x07) << 8) | msg[2]) + 2);
+  size_t msg_len_read = (((uint16_t)(msg[1] & 0x07) << 8) | msg[2]) + 2;
+  if (msg_len != msg_len_read) {
+    ESP_LOGE(TAG, "wrong msg length: %i, expected %i", msg_len, msg_len_read);
     return;
   }
 
@@ -276,7 +274,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     cypher_len     = information_field[14];
   } else if (information_field[13] == 0x82) {
     cypher_len_len = 3;
-    cypher_len     = information_field[14] << 8 | information_field[15];
+    cypher_len = (uint16_t)information_field[14] << 8 | information_field[15];
   } else {
     ESP_LOGE(TAG, "unexpected cypher len field: %02x", information_field[13]);
     return;
@@ -297,12 +295,12 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // Decrypt
   uint8_t data[data_len] = {0};
   memcpy(data, &information_field[18 + cypher_len_len], data_len);
-  uint8_t nonce[16] = {0};
-  memcpy(nonce, &information_field[5], 8);
-  memcpy(nonce + 8, &information_field[14 + cypher_len_len], 4);
-  nonce[15] = 0x02;
+  uint8_t iv[16] = {0};
+  memcpy(iv, &information_field[5], 8);
+  memcpy(iv + 8, &information_field[14 + cypher_len_len], 4);
+  iv[15] = 0x02;
 
-  decrypt(this->key, nonce, data, data_len);
+  decrypt(this->key, iv, data, data_len);
 
   ESP_LOGV(TAG,
       "decrypted data: %s",
