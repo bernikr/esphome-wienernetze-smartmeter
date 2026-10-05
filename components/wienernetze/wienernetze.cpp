@@ -136,36 +136,74 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     return;
   }
 
-  // The HDLC header in front of the payload differs between meters: its two
-  // address fields are 1, 2 or 4 bytes long (Siemens: 1 + 4, Iskraemeco:
-  // 1 + 2, Landis+Gyr: 2 + 1). Only the last byte of an address field has the
-  // lowest bit set (IEC 62056-46).
-  size_t pos     = 3;
-  bool header_ok = true;
-  for (int field = 0; field < 2; field++) {
-    size_t start = pos;
-    while (pos < msg_len && (msg[pos] & 0x01) == 0) {
+  // Dest and Src addresses are variable length (1, 2 or 4 bytes).
+  // The least significant bit is only set for the last byte of each address.
+  // Iterate until the second byte with a non-zero least significant bit is
+  // found.
+  size_t pos = 3;
+  for (int i = 0; i < 2; i++) { // 2 iterations: Dest and Src
+    while (pos < msg_len && (msg[pos] & 0x01) == 0) { // Skip leading zero bytes
       pos++;
     }
     pos++;
-    size_t length = pos - start;
-    header_ok &= length == 1 || length == 2 || length == 4;
   }
-  pos += 3; // control field and header check sequence
+  size_t control_field_pos = pos; // addresses are followed by the control field
 
-  // LLC header, then the system title (tag DB, length 8). Its first three
-  // bytes are the manufacturer ID, e.g. SMS, LGZ or ISK.
-  if (!header_ok || pos + 5 + 8 > msg_len || msg[pos] != 0xe6 ||
-      msg[pos + 1] != 0xe7 || msg[pos + 2] != 0x00 || msg[pos + 3] != 0xdb ||
-      msg[pos + 4] != 0x08) {
-    ESP_LOGW(TAG,
-        "unexpected frame header: %s",
-        format_hex_pretty(
-            std::vector<uint8_t>(msg, msg + std::min<size_t>(msg_len, 20)))
-            .c_str());
+  if (msg[control_field_pos] != 0x03 && msg[control_field_pos] != 0x13) {
+    ESP_LOGE(TAG, "wrong control field: %02x, expected 0x03 or 0x13", msg[pos]);
     return;
   }
-  const uint8_t* system_title = &msg[pos + 5];
+
+  // DLMS/COSEM Information Field (glo-general-ciphering / Suite 0)
+  // +--------+---------+----------+----------+-----------+--------------+-
+  // | D-LSAP | S-LSAP  | LLC Ctrl | APDU Tag | Title Len | System Title |
+  // |   E6   |  E6/E7  |    00    |    DB    |    08     |  (8 bytes)   |
+  // +--------+---------+----------+----------+-----------+--------------+-
+  // ------------+----------+-------------+-------------------+
+  //  Cipher Len | Sec Ctrl | Frame Count | Encrypted Payload |
+  //  (1-3 bytes)|    20    |  (4 bytes)  |    (variable)     |
+  // ------------+----------+-------------+-------------------+
+  const uint8_t* information_field = &msg[control_field_pos + 3];
+  uint8_t information_field_len    = msg_len - control_field_pos - 6;
+
+  ESP_LOGV(TAG,
+      "information field data: %s",
+      format_hex_pretty(std::vector<uint8_t>(information_field,
+                            information_field + information_field_len))
+          .c_str());
+
+  if (information_field[0] != 0xe6) {
+    ESP_LOGE(TAG, "unexpected D-LSAP: %02x, expected e6", information_field[0]);
+    return;
+  }
+
+  if (information_field[1] != 0xe6 && information_field[1] != 0xe7) {
+    ESP_LOGE(TAG,
+        "unexpected S-LSAP: %02x, expected e6 or e7",
+        information_field[1]);
+    return;
+  }
+
+  if (information_field[2] != 0x00) {
+    ESP_LOGE(
+        TAG, "unexpected LLC Ctrl: %02x, expected 00", information_field[2]);
+    return;
+  }
+
+  if (information_field[3] != 0xdb) {
+    ESP_LOGE(TAG,
+        "unexpected APDU Tag: %02x, only db is supported",
+        information_field[3]);
+    return;
+  }
+
+  if (information_field[4] != 0x08) {
+    ESP_LOGE(
+        TAG, "unexpected Title Len: %02x, expected 08", information_field[4]);
+    return;
+  }
+
+  const uint8_t* system_title = &information_field[5];
   ESP_LOGV(TAG,
       "system title: %.3s %s",
       reinterpret_cast<const char*>(system_title),
@@ -173,23 +211,15 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
           std::vector<uint8_t>(system_title + 3, system_title + 8))
           .c_str());
 
-  // The positions below are those of the Siemens layout, where the system
-  // title starts at byte 16.
-  int offset = static_cast<int>(pos + 5) - 16;
-  // The decrypted payload starts with 0x0f and ends with eight 5-byte values,
-  // so it needs at least 41 bytes (see the checks after decryption).
-  if (msg_len - 33 - offset < 41) {
-    ESP_LOGW(TAG, "data too short: %i bytes", msg_len);
-    return;
-  }
+  // TODO Cypher len field
 
   // Decrypt
-  uint8_t data_len       = msg_len - 33 - offset;
+  uint8_t data_len       = information_field_len - 19;
   uint8_t data[data_len] = {0};
-  memcpy(data, msg + 30 + offset, data_len);
+  memcpy(data, &information_field[19], data_len);
   uint8_t nonce[16] = {0};
-  memcpy(nonce, msg + 16 + offset, 8);
-  memcpy(nonce + 8, msg + 26 + offset, 4);
+  memcpy(nonce, &information_field[5], 8);
+  memcpy(nonce + 8, &information_field[15], 4);
   nonce[15] = 0x02;
 
   decrypt(this->key, nonce, data, data_len);
