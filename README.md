@@ -19,7 +19,6 @@ logger:
   baud_rate: 0
 
 uart:
-  tx_pin: 1
   rx_pin: 3
   baud_rate: 9600
 
