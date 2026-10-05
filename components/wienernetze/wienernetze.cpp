@@ -423,8 +423,9 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
 
   if (memcmp(measurement_time, &data[6], 12)) {
     ESP_LOGW(TAG, "difference between measurement time and meter time");
+    ESP_LOGW(TAG, "measurement time: %s", time_buf);
     format_dlms_time(&data[6], time_buf, sizeof(time_buf));
-    ESP_LOGW(TAG, "meter time: %s", time_buf);
+    ESP_LOGW(TAG, "meter time:       %s", time_buf);
   }
 
   uint32_t active_energy_pos_raw   = read_uint32(&values[1 + 5 * 0]);
