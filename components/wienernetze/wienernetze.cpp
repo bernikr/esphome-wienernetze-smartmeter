@@ -273,10 +273,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   }
 
   const uint8_t* system_title = &information_field[5];
-  char device_id[16];
-  format_hex_pretty_to(device_id, system_title + 3, 5);
+  char device_id[11];
+  format_hex_to(device_id, system_title + 3, 5);
   snprintf(
-      this->device, sizeof(this->device), "%.3s %s", system_title, device_id);
+      this->device, sizeof(this->device), "%.3s%s", system_title, device_id);
   ESP_LOGV(TAG, "system title: %s", this->device);
 
   // The Cypher/Data Length field can be 1-3 bytes, its A-XDR encoded, so 0x00
