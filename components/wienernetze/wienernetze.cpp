@@ -211,15 +211,44 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
           std::vector<uint8_t>(system_title + 3, system_title + 8))
           .c_str());
 
-  // TODO Cypher len field
+  // The Cypher/Data Length field can be 1-3 bytes, its A-XDR encoded, so 0x00
+  // to 0x7F are encoded as the same value, for bigger values, it starts with a
+  // byte having the MSB set giving the amount of bytes to follow, then the
+  // value in the following bytes.
+  uint8_t cypher_len;
+  size_t cypher_len_len;
+  if (!(information_field[13] & 0x80)) {
+    cypher_len_len = 1;
+    cypher_len     = information_field[13];
+  } else if (information_field[13] == 0x81) {
+    cypher_len_len = 2;
+    cypher_len     = information_field[14];
+  } else if (information_field[13] == 0x82) {
+    cypher_len_len = 3;
+    cypher_len     = information_field[14] << 8 | information_field[15];
+  } else {
+    ESP_LOGE(TAG, "unexpected cypher len field: %02x", information_field[13]);
+    return;
+  }
+
+  // Subtract length of Sec Ctrl and Frame Count fields to get the length of the
+  // data/cyphertext
+  size_t data_len = cypher_len - 5;
+
+  if (data_len != information_field_len - 18 - cypher_len_len) {
+    ESP_LOGE(TAG,
+        "cypher len field does not match the length of the data: %i != %i",
+        data_len,
+        information_field_len - 18 - cypher_len_len);
+    return;
+  }
 
   // Decrypt
-  uint8_t data_len       = information_field_len - 19;
   uint8_t data[data_len] = {0};
-  memcpy(data, &information_field[19], data_len);
+  memcpy(data, &information_field[18 + cypher_len_len], data_len);
   uint8_t nonce[16] = {0};
   memcpy(nonce, &information_field[5], 8);
-  memcpy(nonce + 8, &information_field[15], 4);
+  memcpy(nonce + 8, &information_field[14 + cypher_len_len], 4);
   nonce[15] = 0x02;
 
   decrypt(this->key, nonce, data, data_len);
