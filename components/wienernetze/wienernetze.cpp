@@ -109,13 +109,28 @@ void format_dlms_time(const uint8_t* buf, char* out_str, size_t max_len) {
         second);
   }
 }
-static char device[20] = "connecting...";
+
+#if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_VERBOSE
+void logv_hex(const char* tag, const uint8_t* data, size_t len) {
+  char chunk_buf[format_hex_pretty_size(16)];
+
+  for (size_t offset = 0; offset < len; offset += 16) {
+    size_t chunk_len = std::min((size_t)16, len - offset);
+
+    format_hex_pretty_to(chunk_buf, data + offset, chunk_len);
+    ESP_LOGV(TAG, "  [%04zx] %s", offset, chunk_buf);
+  }
+}
+  #define LOGV_HEX(tag, data, len) logv_hex(tag, data, len)
+#else
+  #define LOGV_HEX(tag, data, len)
+#endif
 } // namespace
 
 void WienerNetze::dump_config() {
   ESP_LOGCONFIG(TAG, "WienerNetze Smartmeter:");
   ESP_LOGCONFIG(TAG, "  version: %s", WIENERNETZE_VERSION);
-  ESP_LOGCONFIG(TAG, "  device: %s", device);
+  ESP_LOGCONFIG(TAG, "  device: %s", this->device);
 }
 
 void WienerNetze::loop() {
@@ -130,9 +145,8 @@ void WienerNetze::loop() {
 
   if (!this->receiveBuffer.empty() &&
       currentTime - this->lastRead > READ_TIMEOUT) {
-    ESP_LOGV(TAG,
-        "raw received data: %s",
-        format_hex_pretty(this->receiveBuffer).c_str());
+    ESP_LOGV(TAG, "raw received data: %i bytes", this->receiveBuffer.size());
+    LOGV_HEX(TAG, this->receiveBuffer.data(), this->receiveBuffer.size());
     handle_message(this->receiveBuffer.data(), this->receiveBuffer.size());
     this->receiveBuffer.clear(); // Reset buffer
   }
@@ -212,11 +226,8 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   const uint8_t* information_field = &msg[6 + addr_len];
   size_t information_field_len     = msg_len - 6 - addr_len - 3;
 
-  ESP_LOGV(TAG,
-      "information field data: %s",
-      format_hex_pretty(std::vector<uint8_t>(information_field,
-                            information_field + information_field_len))
-          .c_str());
+  ESP_LOGV(TAG, "information field data: %i bytes", information_field_len);
+  LOGV_HEX(TAG, information_field, information_field_len);
 
   // DLMS/COSEM Information Field (glo-general-ciphering / Suite 0)
   //  0        1         2          3          4           5
@@ -264,8 +275,9 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   const uint8_t* system_title = &information_field[5];
   char device_id[16];
   format_hex_pretty_to(device_id, system_title + 3, 5);
-  snprintf(device, sizeof(device), "%.3s %s", system_title, device_id);
-  ESP_LOGV(TAG, "system title: %s", device);
+  snprintf(
+      this->device, sizeof(this->device), "%.3s %s", system_title, device_id);
+  ESP_LOGV(TAG, "system title: %s", this->device);
 
   // The Cypher/Data Length field can be 1-3 bytes, its A-XDR encoded, so 0x00
   // to 0x7F are encoded as the same value, for bigger values, it starts with a
@@ -309,9 +321,8 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
 
   decrypt(this->key, iv, data, data_len);
 
-  ESP_LOGV(TAG,
-      "decrypted data: %s",
-      format_hex_pretty(std::vector<uint8_t>(data, data + data_len)).c_str());
+  ESP_LOGV(TAG, "decrypted data: %i bytes", data_len);
+  LOGV_HEX(TAG, data, data_len);
 
   // Decrypted DLMS/COSEM Payload (Data-Notification APDU: 0F)
   // Some smartmeters do not include the first element (Serial Number), in that

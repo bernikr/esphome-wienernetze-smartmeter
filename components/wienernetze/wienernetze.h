@@ -53,6 +53,7 @@ class WienerNetze : public Component, public uart::UARTDevice {
     std::vector<uint8_t> receiveBuffer; // Stores the raw package data
     unsigned long lastRead = 0;         // Timestamp when data was last read
     const uint8_t* key{nullptr};        // Stores the decryption key
+    char device[20] = "connecting...";  // Stores the device name
 
     void handle_message(const uint8_t* msg, size_t msg_len);
 };
