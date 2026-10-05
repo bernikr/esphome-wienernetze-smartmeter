@@ -109,11 +109,13 @@ void format_dlms_time(const uint8_t* buf, char* out_str, size_t max_len) {
         second);
   }
 }
+static char device[20] = "connecting...";
 } // namespace
 
 void WienerNetze::dump_config() {
   ESP_LOGCONFIG(TAG, "WienerNetze Smartmeter:");
   ESP_LOGCONFIG(TAG, "  version: %s", WIENERNETZE_VERSION);
+  ESP_LOGCONFIG(TAG, "  device: %s", device);
 }
 
 void WienerNetze::loop() {
@@ -260,12 +262,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   }
 
   const uint8_t* system_title = &information_field[5];
-  ESP_LOGV(TAG,
-      "system title: %.3s %s",
-      system_title,
-      format_hex_pretty(
-          std::vector<uint8_t>(system_title + 3, system_title + 8))
-          .c_str());
+  char device_id[16];
+  format_hex_pretty_to(device_id, system_title + 3, 5);
+  snprintf(device, sizeof(device), "%.3s %s", system_title, device_id);
+  ESP_LOGV(TAG, "system title: %s", device);
 
   // The Cypher/Data Length field can be 1-3 bytes, its A-XDR encoded, so 0x00
   // to 0x7F are encoded as the same value, for bigger values, it starts with a
