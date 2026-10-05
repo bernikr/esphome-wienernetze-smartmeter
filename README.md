@@ -2,22 +2,9 @@
 
 This is a custom component for ESPHome to integrate a smartmeter provided by Wiener Netze into Home Assistant via the infrared "Kundenschnittstelle". It gives power and energy readings, both positive and negative for active as well as reactive power.
 
-## Device Support
-
-**Supported and tested**
-- Siemens IM150
-- Siemens IM151
-- Siemens IM350
-- Siemens IM351
-- Landis + Gyr E450
-- Iskraemeco AM550-TD0
-- Iskraemeco AM550-TD0.21
-
-**Possibly supported but untested**
-- Landis + Gyr E570
-- Iskraemeco AM550-ED0
-
-If you have one of the untested devices (or any other devices supplied by Wiener Netze) and are willing to help me test this component, please open an [issue](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new).
+> [!NOTE]
+> `v2` completely overhauled the parsing code. It should be more robust and work on all devices provided by Wiener Netze (and maybe even by other companies in Austria), but is not as widely tested as `v1.4.0`.
+> If you encounter any problems, please open an [issue](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new). 
 
 ## Installation and usage
 
@@ -72,16 +59,16 @@ text_sensor:
 
 For every sensor normal esphome sensor configs can be used to set name, id, icon, etc. or add filters and so on.
 
-**Warning**
-All energy sensors roll over every 1000 kWh and start again from 0 due to precision issues of ESPHome.
-(Sensors are always 32bit floats. If the meter is too high the sensor cant update every Wh anymore.)
-This is not a problem when using the `active_energy_pos` sensor for the energy dashboard in Home Assistant as it is set to `total_increasing` and therefore Home Assistant knows that a drop from 1000 to 0 is a reset of the counter and not a negative consumption of 1000kWh.
-
-As an alternative you can use the text_sensors which always result in the full counter of the meter (in Wh not kWh). To use them as a numeric sensor in Home Assistant you need to create a Template Sensor that takes the sensor and converts it into a numeric sensor:
-
-```jinja
-{{ states("sensor.energy_raw") | float / 1000 }}
-```
+> [!WARNING]
+> All energy sensors roll over every 1000 kWh and start again from 0 due to precision issues of ESPHome.
+> (Sensors are always 32bit floats. If the meter is too high the sensor cant update every Wh anymore.)
+> This is not a problem when using the `active_energy_pos` sensor for the energy dashboard in Home Assistant as it is set to `total_increasing` and therefore Home Assistant knows that a drop from 1000 to 0 is a reset of the counter and not a negative consumption of 1000kWh.
+>
+> As an alternative you can use the text_sensors which always result in the full counter of the meter (in Wh not kWh). To use them as a numeric sensor in Home Assistant you need to create a Template Sensor that takes the sensor and converts it into a numeric sensor:
+>
+> ```jinja
+> {{ states("sensor.energy_raw") | float / 1000 }}
+> ```
 
 ## Tested Hardware
 This component should work on all ESP8266 and ESP32 microcontrollers with an IR read-head attached to them. I used a ready made read-write head with an ESP01s built in that I got for 30€ on [ebay](https://www.ebay.at/sch/i.html?_nkw=lesekopf+tasmota). If they are advertised to be used with Tasmota, they should work.
@@ -94,10 +81,10 @@ The following resources were much help in the development of this component:
 - https://www.lteforum.at/mobilfunk/wiener-netze-smart-meter-auslesen.16222/
 - https://gist.github.com/pocki80/941fa090a8d6269a9b3b68c195f8750f
 
-Thanks to the following people for helping test this component on different smartmeters:
-- IM151: @cyranosaurus
-- IM350: @coolduke666
-- IM351: @elpollodiablo
-- E450: @s00500
-- AM550-TD0: @paul-leitner
-- AM550-TD0.21: @fallingcats
+Thanks to the following people for helping test `v1` of this component on different smartmeters:
+- IM151: [@cyranosaurus](https://github.com/cyranosaurus)
+- IM350: [@coolduke666](https://github.com/coolduke666)
+- IM351: [@elpollodiablo](https://github.com/elpollodiablo)
+- E450: [@s00500](https://github.com/s00500)
+- AM550-TD0: [@paul-leitner](https://github.com/paul-leitner)
+- AM550-TD0.21: [@fallingcats](https://github.com/fallingcats)
