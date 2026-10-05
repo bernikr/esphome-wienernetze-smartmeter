@@ -12,7 +12,7 @@ AUTO_LOAD = ["text_sensor", "sensor"]
 MULTI_CONF = True
 
 CONF_WIENERNETZE_ID = "wienernetze_id"
-CONG_WIENERNETZE_KEY = "key"
+CONF_WIENERNETZE_KEY = "key"
 
 wienernetze_ns = cg.esphome_ns.namespace("wienernetze")
 wienernetze_component = wienernetze_ns.class_("WienerNetze", cg.Component)
@@ -36,7 +36,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(wienernetze_component),
-            cv.Required(CONG_WIENERNETZE_KEY): validate_key,
+            cv.Required(CONF_WIENERNETZE_KEY): validate_key,
             cv.GenerateID(CONF_RAW_DATA_ID): cv.declare_id(cg.uint8),
         },
     ).extend(uart.UART_DEVICE_SCHEMA),
@@ -45,7 +45,7 @@ CONFIG_SCHEMA = cv.All(
 
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    arr = cg.progmem_array(config[CONF_RAW_DATA_ID], config[CONG_WIENERNETZE_KEY])
+    arr = cg.progmem_array(config[CONF_RAW_DATA_ID], config[CONF_WIENERNETZE_KEY])
     cg.add(var.set_key(arr))
     yield cg.register_component(var, config)
     yield uart.register_uart_device(var, config)
