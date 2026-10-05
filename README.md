@@ -73,6 +73,13 @@ For every sensor normal esphome sensor configs can be used to set name, id, icon
 ## Tested Hardware
 This component should work on all ESP8266 and ESP32 microcontrollers with an IR read-head attached to them. I used a ready made read-write head with an ESP01s built in that I got for 30€ on [ebay](https://www.ebay.at/sch/i.html?_nkw=lesekopf+tasmota). If they are advertised to be used with Tasmota, they should work.
 
+> [!IMPORTANT]
+> If you are using a read-write head, you should probably disconnect or cover the write LED.
+> (I used aluminium foil and electrical tape)
+> If the LED is active and sends data (on my hardware it was connected to the default serial port, so on boot it would send all the logs there) the meter might enter a lock-out state and stop sending data.
+>
+> Recovering from that state should be possible by either deactivating the Kundenschnittstelle in the online interface and waiting a few days before enabling it again or by disconnecting the power upstream of the smartmeter (if you have access to that) for at least 60s.
+
 ## Thanks
 The following resources were much help in the development of this component:
 - https://github.com/aldadic/esp32-smartmeter-reader
