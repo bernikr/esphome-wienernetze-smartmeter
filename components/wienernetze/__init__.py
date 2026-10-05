@@ -49,10 +49,7 @@ def to_code(config):
     cg.add(var.set_key(arr))
     yield cg.register_component(var, config)
     yield uart.register_uart_device(var, config)
-    if CORE.using_arduino:
-        # If compiling under the Arduino framework, pull in the Arduino library
-        cg.add_library("rweather/Crypto", "0.4.0")
-    elif CORE.is_esp32:
+    if CORE.is_esp32:
         # If on ESP32 and not using Arduino (meaning native ESP-IDF), request mbedtls
         try:
             from esphome.components.esp32 import include_builtin_idf_component  # ruff:ignore[import-outside-top-level]

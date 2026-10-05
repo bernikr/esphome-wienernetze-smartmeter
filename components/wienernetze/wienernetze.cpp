@@ -9,8 +9,7 @@
   #endif
   #include <mbedtls/aes.h>
 #else
-  #include <AES.h>
-  #include <CTR.h>
+  #include <bearssl/bearssl.h>
 #endif
 
 #define READ_TIMEOUT 100 // Time to wait after last byte before decoding
@@ -53,11 +52,17 @@ void decrypt(const uint8_t key[16], const uint8_t iv[16], uint8_t* data,
       &aes_ctx, data_len, &nc_off, nonce_counter, stream_block, data, data);
   mbedtls_aes_free(&aes_ctx);
 #else
-  // Arduino: use rweather/Crypto library
-  CTR<AES128> ctraes128;
-  ctraes128.setKey(key, 16);
-  ctraes128.setIV(iv, 16);
-  ctraes128.decrypt(data, data, data_len);
+  // Arduino: use bearssl constant time AES-128-CTR
+  // copy key and iv to aligned memory (bearssl uses 32bit reads on it)
+  alignas(4) uint8_t key_aligned[16];
+  memcpy(key_aligned, key, 16);
+  alignas(4) uint8_t iv_aligned[16];
+  memcpy(iv_aligned, iv, 16);
+  br_aes_ct_ctr_keys ctx;
+  br_aes_ct_ctr_init(&ctx, key_aligned, 16);
+  uint32_t cc = ((uint32_t)iv[12] << 24) | ((uint32_t)iv[13] << 16) |
+                ((uint32_t)iv[14] << 8) | iv[15];
+  br_aes_ct_ctr_run(&ctx, iv_aligned, cc, data, data_len);
 #endif
 }
 
