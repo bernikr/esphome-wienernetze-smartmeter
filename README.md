@@ -4,7 +4,7 @@ This is a custom component for ESPHome to integrate a smartmeter provided by Wie
 
 > [!NOTE]
 > `v2` completely overhauled the parsing code. It should be more robust and work on all devices provided by Wiener Netze (and maybe even by other companies in Austria), but is not as widely tested as `v1.4.0`.
-> If you encounter any problems, please open an [issue](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new). 
+> If you encounter any problems, please open an [issue](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new).
 
 ## Installation and usage
 
