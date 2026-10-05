@@ -10,6 +10,7 @@ VERSION_OCCURRENCES = [
     ("README.md", r"(source: github://bernikr/esphome-wienernetze-smartmeter@v)(\S+)()", 1),
     ("components/wienernetze/wienernetze.h", r'(static const char\* WIENERNETZE_VERSION = ")(\S+)(";)', 1),
     ("pyproject.toml", r'(version = ")(\S+)(")', 1),
+    ("uv.lock", r'(name = "esphome-wienernetze-smartmeter"\nversion = ")(\S+)(")', 1),
 ]
 
 versions = set()
