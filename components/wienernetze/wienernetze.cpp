@@ -274,7 +274,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     cypher_len     = information_field[14];
   } else if (information_field[13] == 0x82) {
     cypher_len_len = 3;
-    cypher_len = (uint16_t)information_field[14] << 8 | information_field[15];
+    cypher_len = ((uint16_t)information_field[14] << 8) | information_field[15];
   } else {
     ESP_LOGE(TAG, "unexpected cypher len field: %02x", information_field[13]);
     return;
