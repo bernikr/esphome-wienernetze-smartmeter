@@ -146,7 +146,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   //  4+x      6+x           len-3     len-1
   // -+--------+-------------+---------+------+
   //  |  HCS   | Information |   FCS   | Flag |
-  //  |(2 byte)|  (APDU data)| (2 byte)|  7E  |
+  //  |(2 byte)| (APDU data) | (2 byte)|  7E  |
   // -+--------+-------------+---------+------+
 
   if (msg[0] != 0x7e) {
@@ -314,37 +314,40 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
       format_hex_pretty(std::vector<uint8_t>(data, data + data_len)).c_str());
 
   // Decrypted DLMS/COSEM Payload (Data-Notification APDU: 0F)
+  // Some smartmeters do not include the first element (Serial Number), in that
+  // case the rest of the elements are offset.
+  //
   //  0          1            2                5             6
   //  +----------+------------+----------------+-------------+----------------+-
   //  | APDU Tag | Prio/Flags | Long-Invoke-Id | Date-Time L | APDU Timestamp |
   //  |    0F    |     00     |   (3 bytes)    |     0C      |   (12 bytes)   |
   //  +----------+------------+----------------+-------------+----------------+-
-  //  18           19           20              22
+  //  18           19           20(-)           22(-)
   // -+------------+------------+---------------+--------------------+-
   //  | Struct Tag | Struct Qty | Str Tag & Len |  Element 1: Serial |
-  //  |     02     |     0A     |     09 10     |     (16 bytes)     |
+  //  |     02     |   0A/09    |    (09 10)    |    (16/0 bytes)    |
   // -+------------+------------+---------------+--------------------+-
-  //  38           40                   52         53
+  //  38(20)       40(22)               52(34)     53(35)
   // -+------------+--------------------+----------+--------------------+-
   //  | Str Tag & L|  Element 2: Time   | Type Tag |   Element 3: +A    |
   //  |    09 0C   |     (12 bytes)     |    06    |    (uint32 Wh)     |
   // -+------------+--------------------+----------+--------------------+-
-  //  57           58                   62         63
+  //  57(39)       58(40)               62(44)     63(45)
   // -+------------+--------------------+----------+--------------------+-
   //  | Type Tag   |   Element 4: -A    | Type Tag |   Element 5: +R    |
   //  |    06      |    (uint32 Wh)     |    06    |   (uint32 varh)    |
   // -+------------+--------------------+----------+--------------------+-
-  //  67           68                   72         73
+  //  67(49)       68(50)               72(54)     73(55)
   // -+------------+--------------------+----------+--------------------+-
   //  | Type Tag   |   Element 6: -R    | Type Tag |   Element 7: +P    |
   //  |    06      |   (uint32 varh)    |    06    |     (uint32 W)     |
   // -+------------+--------------------+----------+--------------------+-
-  //  77           78                   82         83
+  //  77(59)       78(60)               82(64)     83(65)
   // -+------------+--------------------+----------+--------------------+-
   //  | Type Tag   |   Element 8: -P    | Type Tag |   Element 9: +Q    |
   //  |    06      |     (uint32 W)     |    06    |    (uint32 var)    |
   // -+------------+--------------------+----------+--------------------+-
-  //  87           88
+  //  87(69)       88(70)
   // -+------------+--------------------+
   //  | Type Tag   |   Element 10: -Q   |
   //  |    06      |    (uint32 var)    |
@@ -357,11 +360,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     return;
   }
 
-  // Not all meters send the serial number. Wiener Netze documents it as the
-  // first element for Siemens meters (10 elements), Landis+Gyr and Iskraemeco
-  // meters start directly with the time (9 elements), and so do some Siemens
-  // meters (e.g. IM351 with system title SMSgp). All following offsets are
-  // relative to the start of the time element.
+  // Not all meters send the serial number. Some start directly with the time.
   // https://www.wienernetze.at/smart-meter-kundenschnittstelle
   size_t time_pos;
   if (data[19] == 0x0a) {
@@ -381,14 +380,6 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     ESP_LOGE(TAG,
         "unexpected number of elements: %02x, expected 0a or 09",
         data[19]);
-    return;
-  }
-
-  if (data_len < time_pos + 2 + 12 + 8 * 5) {
-    ESP_LOGE(TAG,
-        "decrypted data too short: %i bytes, expected at least %i",
-        data_len,
-        time_pos + 2 + 12 + 8 * 5);
     return;
   }
 
