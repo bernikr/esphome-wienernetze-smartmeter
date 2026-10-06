@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 bernikr <hi@berni.kr>
+#
+# SPDX-License-Identifier: MIT
+
 # ruff:file-ignore[missing-type-function-argument, missing-return-type-undocumented-public-function, non-empty-init-module]
 
 import esphome.codegen as cg

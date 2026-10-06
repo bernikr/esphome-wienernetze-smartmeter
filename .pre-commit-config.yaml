@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 bernikr <hi@berni.kr>
+#
+# SPDX-License-Identifier: MIT
+
 # Install with `prek install`
 default_install_hook_types: [pre-commit, commit-msg]
 repos:
@@ -31,6 +35,10 @@ repos:
     rev: v23.1.2
     hooks:
       - id: clang-format
+  - repo: https://codeberg.org/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
   - repo: https://github.com/jorisroovers/gitlint
     rev: v0.19.1
     hooks:

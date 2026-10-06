@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 bernikr <hi@berni.kr>
+#
+# SPDX-License-Identifier: MIT
+
 name: autofix.ci
 on: [push, pull_request]
 jobs:

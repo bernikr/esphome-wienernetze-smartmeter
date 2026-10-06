@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 bernikr <hi@berni.kr>
+#
+# SPDX-License-Identifier: MIT
+
 # ruff:file-ignore[missing-type-args, missing-type-kwargs, missing-return-type-special-method, non-empty-init-module]
 import esphome.config_validation as cv
 

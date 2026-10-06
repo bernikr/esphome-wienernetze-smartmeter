@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 bernikr <hi@berni.kr>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #pragma once
 
 #include "esphome/components/uart/uart.h"

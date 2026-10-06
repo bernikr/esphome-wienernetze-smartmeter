@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 bernikr <hi@berni.kr>
+#
+# SPDX-License-Identifier: MIT
+
 [project]
 name = "esphome-wienernetze-smartmeter"
 version = "2.1.1"
