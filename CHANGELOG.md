@@ -47,15 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2026-10-05
 
-### Added
-- Explicit handling and validation for the Cipher Length field.
-- Additional frame format and start-byte checks.
-
-### Fixed
-- Masking bit calculation for segmented/fragmented messages.
-
 ### Changed
-- Switched to finding payload offsets dynamically via the HDLC header rather than hardcoded meter model heuristics (#20).
+- Switched to proper parsing of the HDLC frame rather than hardcoded offsets based on meter model heuristics (#20).
+  **This *might* break compatibility with some meters.**
+  Please open an [issue](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/new) if you encounter any problems to help me test it on more meters.
 - Decoupled platform-specific decryption routines.
 - Overhauled parser internals, data types, and cast safety with improved documentation.
 - Updated documentation and configuration examples for version 2.0.
