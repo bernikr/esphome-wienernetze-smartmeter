@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.1.1]
+## [2.1.1] - 2026-10-05
 
 ### Added
 - Smart meter ID logging in configuration output (`dump_config`).
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.1.0]
+## [2.1.0] - 2026-10-05
 
 ### Added
 - Support for smart meters that transmit without a serial number (#21).
@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.0]
+## [2.0.0] - 2026-10-05
 
 ### Added
 - Explicit handling and validation for the Cipher Length field.
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.4.0]
+## [1.4.0] - 2026-10-02
 
 ### Changed
 - Shortened meter model detection prefix to 3 bytes.
@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0]
+## [1.3.0] - 2026-07-21
 
 ### Added
 - Support for the ESP-IDF framework on ESP32.
@@ -81,21 +81,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.0]
+## [1.2.0] - 2025-08-28
 
 ### Added
 - Support for additional Sagemcom AM550-TD0 identifier variants (including AM550-TD0.21) (#7).
 
 ---
 
-## [1.1.1]
+## [1.1.1] - 2025-02-25
 
 ### Documentation
 - Added documentation for Sagemcom AM550-TD0 meter support.
 
 ---
 
-## [1.1.0]
+## [1.1.0] - 2025-02-25
 
 ### Added
 - Support for Iskraemeco (ISKit) smart meter models.
@@ -104,14 +104,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.1]
+## [1.0.1] - 2025-02-14
 
 ### Changed
 - Added verbose (`logv`) logging for the detected smart meter identifier.
 
 ---
 
-## [1.0.0]
+## [1.0.0] - 2025-02-13
 
 ### BREAKING CHANGES
 - Changed component name from `im150` to `wienernetze` to reflect the wider support. Adjust your config accordingly.
@@ -129,21 +129,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.1.2]
+## [0.1.2] - 2024-05-09
 
 ### Changed
 - State updates are now only published when raw values change, reducing bus noise.
 
 ---
 
-## [0.1.1]
+## [0.1.1] - 2024-05-09
 
 ### Added
 - Implemented `dump_config` support to print the active component version at boot.
 
 ---
 
-## [0.1.0]
+## [0.1.0] - 2024-05-09
 
 ### Added
 - Initial external component implementation.
