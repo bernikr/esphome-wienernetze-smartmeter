@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import re
+from datetime import date
 from pathlib import Path
 
 from git import GitCommandError, Repo
@@ -72,7 +73,7 @@ if not next_version > version:
 
 repo = Repo(Path(__file__).parent)
 if repo.is_dirty():
-    print("WARNING: repo is dirty, please commit or stage changes before continuing")
+    print("WARNING: repo is dirty, please commit changes before continuing")
     input("Press enter to continue")
 
 for filename, regex, _ in VERSION_OCCURRENCES:
@@ -82,13 +83,23 @@ for filename, regex, _ in VERSION_OCCURRENCES:
         f.write(res)
         f.truncate()
 
+with Path(__file__).parent.joinpath("CHANGELOG.md").open("r+") as f:
+    res = re.sub(
+        r"## \[Unreleased\]",
+        rf"## [Unreleased]\n\n---\n\n## [{next_version}] - {date.today().strftime('%Y-%m-%d')}",  # ruff: ignore[call-date-today]
+        f.read(),
+    )
+    f.seek(0)
+    f.write(res)
+    f.truncate()
+
 if has_warnings:
     print("WARNING: there were warnings, please check the output before continuing")
     input("Press enter to continue")
 
 res = input("Do you want to commit the changes? [y/N] ")
 if res.lower() in {"y", "yes"}:
-    repo.git.add(*{filename for filename, _, _ in VERSION_OCCURRENCES})
+    repo.git.add(*{filename for filename, _, _ in VERSION_OCCURRENCES}, "CHANGELOG.md")
     repo.git.commit("-m", f"chore(release): bump version to {next_version}")
     repo.create_tag(f"v{next_version}", message=f"Bump version to {next_version}")
     print("changes committed and created tag")
