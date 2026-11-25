@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 name: autofix.ci
-on: 
+on:
   push:
     branches: [main]
   pull_request:
