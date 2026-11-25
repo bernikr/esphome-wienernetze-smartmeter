@@ -332,10 +332,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // Some smartmeters do not include the first element (Serial Number), in that
   // case the rest of the elements are offset.
   //
-  //  0          1            2                5             6
-  //  +----------+------------+----------------+-------------+----------------+-
-  //  | APDU Tag | Prio/Flags | Long-Invoke-Id | Date-Time L | APDU Timestamp |
-  //  |    0F    |     00     |   (3 bytes)    |     0C      |   (12 bytes)   |
+  //  0          1                             5             6
+  //  +----------+-----------------------------+-------------+----------------+-
+  //  | APDU Tag | Long-Invoke-Id-And-Priority | Date-Time L | APDU Timestamp |
+  //  |    0F    |           (4 bytes)         |     0C      |   (12 bytes)   |
   //  +----------+------------+----------------+-------------+----------------+-
   //  18           19           20(-)           22(-)
   // -+------------+------------+---------------+--------------------+-
@@ -368,9 +368,9 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   //  |    06      |    (uint32 var)    |
   // -+------------+--------------------+
 
-  // Check some well known bytes in the decrypted data
-  if (data[0] != 0x0f || data[1] != 0x00 || data[5] != 0x0c ||
-      data[18] != 0x02) {
+  // Check some well known bytes in the decrypted data. AES-CTR does not provide
+  // any integrity check, so this is how an incorrect key is detected.
+  if (data_len < 20 || data[0] != 0x0f || data[5] != 0x0c || data[18] != 0x02) {
     ESP_LOGE(TAG, "decryption error, please check if your key is correct");
     return;
   }
@@ -379,7 +379,30 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // https://www.wienernetze.at/smart-meter-kundenschnittstelle
   size_t time_pos;
   if (data[19] == 0x0a) {
-    // Meter Serial Number
+    // 10 Elements: Includes serial number
+    time_pos = 38;
+  } else if (data[19] == 0x09) {
+    // 9 Elements: No serial number
+    time_pos = 20;
+  } else {
+    ESP_LOGE(TAG,
+        "unexpected number of elements: %02x, expected 0a or 09",
+        data[19]);
+    return;
+  }
+
+  // The payload must be long enough for the optional serial number, the
+  // measurement time and all 8 values before any of them are accessed.
+  const size_t min_len = time_pos + 14 + 8 * 5;
+  if (data_len < min_len) {
+    ESP_LOGE(TAG,
+        "decrypted data too short: %i bytes, expected at least %i",
+        (int)data_len,
+        (int)min_len);
+    return;
+  }
+
+  if (time_pos == 38) {
     if (data[20] != 0x09 || data[21] != 0x10) {
       ESP_LOGE(TAG,
           "unexpected meter serial number tag: %02x %02x, expected 09 10",
@@ -388,14 +411,6 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
       return;
     }
     ESP_LOGV(TAG, "meter serial number: %.16s", &data[22]);
-    time_pos = 38;
-  } else if (data[19] == 0x09) {
-    time_pos = 20;
-  } else {
-    ESP_LOGE(TAG,
-        "unexpected number of elements: %02x, expected 0a or 09",
-        data[19]);
-    return;
   }
 
   if (data[time_pos] != 0x09 || data[time_pos + 1] != 0x0c) {
@@ -410,6 +425,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // Elements 3 to 10 (or 2 to 9 without serial number), each a Type Tag 06
   // followed by a uint32
   const uint8_t* values = &data[time_pos + 14];
+
   for (int i = 0; i < 8; i++) {
     if (values[5 * i] != 0x06) {
       ESP_LOGE(TAG,
