@@ -24,7 +24,7 @@ ignore = [
 
 [dependency-groups]
 dev = [
-  "ruff>=0.16.10",
-  "esphome>=2026.9.1",
-  "prek>=0.5.5",
+  "ruff>=0.17.6",
+  "esphome>=2026.11.1",
+  "prek>=0.5.11",
 ]

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-# ruff:file-ignore[missing-type-function-argument, missing-return-type-undocumented-public-function]
+# ruff:file-ignore[missing-type-function-argument, missing-return-type-public-function]
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
