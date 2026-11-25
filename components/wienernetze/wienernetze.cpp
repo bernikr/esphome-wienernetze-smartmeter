@@ -370,9 +370,11 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
 
   // Check some well known bytes in the decrypted data. AES-CTR does not provide
   // any integrity check, so this is how an incorrect key is detected.
-  // Byte 1 is part of the long-invoke-id-and-priority field and varies between
-  // meter models (e.g. 0x00 on most meters, 0x04 on Landis+Gyr), so it must not
-  // be checked. Bytes 2-4 are a counter that also changes between frames.
+  // Bytes 1-4 are the Long-Invoke-Id-And-Priority (DLMS/COSEM Green Book,
+  // COSEMpdu ASN.1). These meters fill it with their 32-bit invocation counter,
+  // which increases with every frame and had already grown beyond 24 bits on
+  // the Landis+Gyr meter from issue #22 (0x0426E622), so its high byte is not
+  // always 0x00. None of these bytes may be validated.
   if (data_len < 20 || data[0] != 0x0f || data[5] != 0x0c || data[18] != 0x02) {
     ESP_LOGE(TAG, "decryption error, please check if your key is correct");
     return;
