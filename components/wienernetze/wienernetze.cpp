@@ -277,10 +277,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   }
 
   const uint8_t* system_title = &information_field[5];
-  char device_id[16];
-  format_hex_pretty_to(device_id, system_title + 3, 5);
+  char device_id[11];
+  format_hex_to(device_id, system_title + 3, 5);
   snprintf(
-      this->device, sizeof(this->device), "%.3s %s", system_title, device_id);
+      this->device, sizeof(this->device), "%.3s%s", system_title, device_id);
   ESP_LOGV(TAG, "system title: %s", this->device);
 
   // The Cypher/Data Length field can be 1-3 bytes, its A-XDR encoded, so 0x00
@@ -443,8 +443,9 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
 
   if (memcmp(measurement_time, &data[6], 12)) {
     ESP_LOGW(TAG, "difference between measurement time and meter time");
+    ESP_LOGW(TAG, "measurement time: %s", time_buf);
     format_dlms_time(&data[6], time_buf, sizeof(time_buf));
-    ESP_LOGW(TAG, "meter time: %s", time_buf);
+    ESP_LOGW(TAG, "meter time:       %s", time_buf);
   }
 
   uint32_t active_energy_pos_raw   = read_uint32(&values[1 + 5 * 0]);
