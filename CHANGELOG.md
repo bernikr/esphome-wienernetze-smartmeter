@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.1.3] - 2026-11-25
+
 ### Changed
 - Changed device name format.
 - Improved logging to output warnings on mismatched values.

@@ -32,7 +32,7 @@ namespace sensor { class Sensor; }
 namespace text_sensor { class TextSensor; }
 
 namespace wienernetze {
-static const char* WIENERNETZE_VERSION = "2.1.2";
+static const char* WIENERNETZE_VERSION = "2.1.3";
 static const char* TAG                 = "wienernetze";
 
 class WienerNetze : public Component, public uart::UARTDevice {
