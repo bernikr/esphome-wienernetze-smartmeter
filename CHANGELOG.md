@@ -16,10 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Changed device name format.
 - Improved logging to output warnings on mismatched values.
+
+---
+
+## [2.1.2] - 2026-11-25
+
+### Added
+- Project license (MIT) and copyright information.
+
+### Changed
 - Removed unnecessary `tx_pin` requirement from UART configuration.
 
-### Other
-- Added project license and copyright information.
+### Fixed
+- Support Landis+Gyr data-notification frames, which put a non-zero value in the long-invoke-id-and-priority field ([#22](https://github.com/bernikr/esphome-wienernetze-smartmeter/issues/22)).
+- Guard against out-of-bounds reads when parsing malformed or truncated payloads.
 
 ---
 
