@@ -382,7 +382,7 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
     // 10 Elements: Includes serial number
     time_pos = 38;
   } else if (data[19] == 0x09) {
-    // 9 Elements: No serial number 
+    // 9 Elements: No serial number
     time_pos = 20;
   } else {
     ESP_LOGE(TAG,
