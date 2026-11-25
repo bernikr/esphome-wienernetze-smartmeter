@@ -332,10 +332,10 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
   // Some smartmeters do not include the first element (Serial Number), in that
   // case the rest of the elements are offset.
   //
-  //  0          1            2                5             6
-  //  +----------+------------+----------------+-------------+----------------+-
-  //  | APDU Tag | Prio/Flags | Long-Invoke-Id | Date-Time L | APDU Timestamp |
-  //  |    0F    |  (1 byte)  |   (3 bytes)    |     0C      |   (12 bytes)   |
+  //  0          1                             5             6
+  //  +----------+-----------------------------+-------------+----------------+-
+  //  | APDU Tag | Long-Invoke-Id-And-Priority | Date-Time L | APDU Timestamp |
+  //  |    0F    |           (4 bytes)         |     0C      |   (12 bytes)   |
   //  +----------+------------+----------------+-------------+----------------+-
   //  18           19           20(-)           22(-)
   // -+------------+------------+---------------+--------------------+-
@@ -370,11 +370,6 @@ void WienerNetze::handle_message(const uint8_t* msg, size_t msg_len) {
 
   // Check some well known bytes in the decrypted data. AES-CTR does not provide
   // any integrity check, so this is how an incorrect key is detected.
-  // Bytes 1-4 are the Long-Invoke-Id-And-Priority (DLMS/COSEM Green Book,
-  // COSEMpdu ASN.1). These meters fill it with their 32-bit invocation counter,
-  // which increases with every frame and had already grown beyond 24 bits on
-  // the Landis+Gyr meter from issue #22 (0x0426E622), so its high byte is not
-  // always 0x00. None of these bytes may be validated.
   if (data_len < 20 || data[0] != 0x0f || data[5] != 0x0c || data[18] != 0x02) {
     ESP_LOGE(TAG, "decryption error, please check if your key is correct");
     return;
