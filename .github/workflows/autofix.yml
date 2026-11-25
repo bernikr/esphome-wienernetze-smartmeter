@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 name: autofix.ci
-on: [push, pull_request]
+on: 
+  push:
+    branches: [main]
+  pull_request:
 jobs:
   prek:
     runs-on: ubuntu-latest
